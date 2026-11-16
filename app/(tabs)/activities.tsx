@@ -11,6 +11,7 @@ import {
   Linking,
   Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Palette,
@@ -23,6 +24,8 @@ import {
   X,
   Brush,
   ChevronRight,
+  ChevronDown,
+  ArrowRight,
   ShieldCheck,
 } from 'lucide-react-native';
 import AppHeader from '../../src/components/AppHeader';
@@ -48,8 +51,14 @@ const WHATSAPP_MESSAGE =
   'Hello Little Polo Cafe! I would like to book an appointment for the Sunday Family Painting activity (12:00 PM – 2:00 PM).';
 
 export default function ActivitiesScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
+  const [expandedStep, setExpandedStep] = useState<number | null>(1);
+
+  const toggleStep = (step: number) => {
+    setExpandedStep((prev) => (prev === step ? null : step));
+  };
 
   const handleBookViaWhatsApp = async () => {
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
@@ -138,54 +147,94 @@ export default function ActivitiesScreen() {
           </View>
         </View>
 
-        {/* How It Works Steps */}
+        {/* How It Works Accordion */}
         <View style={styles.stepsSection}>
           <Text style={styles.sectionHeaderTitle}>HOW IT WORKS</Text>
+          <Text style={styles.sectionHeaderSub}>Tap each step to view instructions</Text>
           
           <View style={styles.stepsCard}>
-            <View style={styles.stepItem}>
+            {/* Step 1 */}
+            <Pressable
+              style={styles.stepAccordionHeader}
+              onPress={() => toggleStep(1)}
+              accessibilityRole="button"
+              accessibilityLabel="Step 1: Pick a Sketch Outline"
+            >
               <View style={styles.stepNumberBadge}>
                 <Text style={styles.stepNumberText}>1</Text>
               </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Pick a Sketch Outline</Text>
+              <Text style={styles.stepTitle}>Pick a Sketch Outline</Text>
+              <ChevronDown
+                size={18}
+                color={COLORS.textSecondary}
+                style={[styles.chevron, expandedStep === 1 && styles.chevronRotated]}
+              />
+            </Pressable>
+            {expandedStep === 1 && (
+              <View style={styles.stepAccordionBody}>
                 <Text style={styles.stepSubtitle}>
                   Choose your child’s favorite outline from our weekly collection of cartoon and animal sketches.
                 </Text>
               </View>
-            </View>
+            )}
 
             <View style={styles.stepDivider} />
 
-            <View style={styles.stepItem}>
+            {/* Step 2 */}
+            <Pressable
+              style={styles.stepAccordionHeader}
+              onPress={() => toggleStep(2)}
+              accessibilityRole="button"
+              accessibilityLabel="Step 2: Paint with Oil Colors"
+            >
               <View style={styles.stepNumberBadge}>
                 <Text style={styles.stepNumberText}>2</Text>
               </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Paint with Oil Colors</Text>
+              <Text style={styles.stepTitle}>Paint with Oil Colors</Text>
+              <ChevronDown
+                size={18}
+                color={COLORS.textSecondary}
+                style={[styles.chevron, expandedStep === 2 && styles.chevronRotated]}
+              />
+            </Pressable>
+            {expandedStep === 2 && (
+              <View style={styles.stepAccordionBody}>
                 <Text style={styles.stepSubtitle}>
                   Our friendly facilitators guide children with color mixing, brushstrokes, and easy techniques.
                 </Text>
               </View>
-            </View>
+            )}
 
             <View style={styles.stepDivider} />
 
-            <View style={styles.stepItem}>
+            {/* Step 3 */}
+            <Pressable
+              style={styles.stepAccordionHeader}
+              onPress={() => toggleStep(3)}
+              accessibilityRole="button"
+              accessibilityLabel="Step 3: Take Your Artwork Home"
+            >
               <View style={styles.stepNumberBadge}>
                 <Text style={styles.stepNumberText}>3</Text>
               </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Take Your Artwork Home</Text>
+              <Text style={styles.stepTitle}>Take Your Artwork Home</Text>
+              <ChevronDown
+                size={18}
+                color={COLORS.textSecondary}
+                style={[styles.chevron, expandedStep === 3 && styles.chevronRotated]}
+              />
+            </Pressable>
+            {expandedStep === 3 && (
+              <View style={styles.stepAccordionBody}>
                 <Text style={styles.stepSubtitle}>
                   Take home your dry, framed masterpiece to display proudly in your living room or bedroom!
                 </Text>
               </View>
-            </View>
+            )}
           </View>
         </View>
 
-        {/* Event Photo Gallery */}
+        {/* Event Photo Gallery (At Most 4 Photos Preview) */}
         <View style={styles.gallerySection}>
           <View style={styles.galleryHeaderRow}>
             <View>
@@ -193,13 +242,13 @@ export default function ActivitiesScreen() {
               <Text style={styles.gallerySubtitle}>Moments from our recent painting sessions</Text>
             </View>
             <View style={styles.photoCountPill}>
-              <Text style={styles.photoCountText}>{GALLERY_PHOTOS.length} Photos</Text>
+              <Text style={styles.photoCountText}>{GALLERY_PHOTOS.length} Total</Text>
             </View>
           </View>
 
-          {/* 2-Column Photo Grid */}
+          {/* 2-Column Photo Grid (4 Photos preview) */}
           <View style={styles.photoGrid}>
-            {GALLERY_PHOTOS.map((item) => (
+            {GALLERY_PHOTOS.slice(0, 4).map((item) => (
               <Pressable
                 key={item.id}
                 style={styles.photoCard}
@@ -216,6 +265,29 @@ export default function ActivitiesScreen() {
               </Pressable>
             ))}
           </View>
+
+          {/* See More Button with Arrow */}
+          <Pressable
+            style={styles.seeMoreCard}
+            onPress={() => router.push('/activities/gallery')}
+            accessibilityRole="button"
+            accessibilityLabel="See more gallery photos"
+          >
+            <View style={styles.seeMoreLeft}>
+              <View style={styles.seeMoreIconCircle}>
+                <Palette size={20} color={COLORS.primary} strokeWidth={2.2} />
+              </View>
+              <View style={styles.seeMoreTextGroup}>
+                <Text style={styles.seeMoreTitle}>See More Photos</Text>
+                <Text style={styles.seeMoreSub}>
+                  Browse all {GALLERY_PHOTOS.length} photos from Sunday sessions
+                </Text>
+              </View>
+            </View>
+            <View style={styles.seeMoreArrowCircle}>
+              <ArrowRight size={20} color={COLORS.white} strokeWidth={2.4} />
+            </View>
+          </Pressable>
         </View>
 
         {/* Book Appointment CTA Section */}
@@ -368,19 +440,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     letterSpacing: 1.2,
+    marginBottom: 2,
+  },
+  sectionHeaderSub: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
     marginBottom: SPACING.sm,
   },
   stepsCard: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
+    padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     ...SHADOW.soft,
   },
-  stepItem: {
+  stepAccordionHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 6,
   },
   stepNumberBadge: {
     width: 28,
@@ -390,33 +469,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
-    marginTop: 2,
   },
   stepNumberText: {
     fontFamily: FONTS.bold,
     fontSize: 13,
     color: COLORS.white,
   },
-  stepContent: {
-    flex: 1,
-  },
   stepTitle: {
+    flex: 1,
     fontFamily: FONTS.semibold,
     fontSize: 15,
     color: COLORS.heading,
-    marginBottom: 2,
+  },
+  chevron: {
+    transform: [{ rotate: '0deg' }],
+  },
+  chevronRotated: {
+    transform: [{ rotate: '180deg' }],
+  },
+  stepAccordionBody: {
+    paddingLeft: 42,
+    paddingRight: SPACING.sm,
+    paddingTop: 4,
+    paddingBottom: 6,
   },
   stepSubtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textSecondary,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   stepDivider: {
     height: 1,
     backgroundColor: '#F3F4F6',
-    marginVertical: SPACING.md,
-    marginLeft: 40,
+    marginVertical: 6,
+    marginLeft: 42,
   },
   gallerySection: {
     paddingHorizontal: SPACING.lg,
@@ -475,6 +562,55 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: 11,
     color: COLORS.white,
+  },
+  seeMoreCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8F9FA',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#ECEFF1',
+    ...SHADOW.soft,
+  },
+  seeMoreLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  seeMoreIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  seeMoreTextGroup: {
+    flex: 1,
+  },
+  seeMoreTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 14,
+    color: COLORS.heading,
+  },
+  seeMoreSub: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  seeMoreArrowCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
   },
   ctaCard: {
     marginHorizontal: SPACING.lg,

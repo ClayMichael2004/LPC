@@ -10,7 +10,7 @@ export default function AppHeader() {
   const { locationName } = useLocation();
 
   const handleLocationPress = () => {
-    router.push('/');
+    router.push('/location');
   };
 
   return (

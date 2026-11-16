@@ -16,7 +16,7 @@ export default function BottomNav({ state, descriptors, navigation }: BottomNavP
   const { isAuthenticated, showSignInModal } = useAuth();
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <View style={[styles.wrapper, { bottom: Math.max(insets.bottom, 14) }]}>
       <View style={styles.container}>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
@@ -99,21 +99,22 @@ export default function BottomNav({ state, descriptors, navigation }: BottomNavP
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    left: SPACING.md,
+    right: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    ...SHADOW.soft,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#ECEFF1',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   container: {
     flexDirection: 'row',
-    paddingTop: 10,
-    paddingBottom: 4,
-    paddingHorizontal: SPACING.sm,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.xs,
   },
   tabItem: {
     flex: 1,

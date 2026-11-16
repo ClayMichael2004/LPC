@@ -1,171 +1,190 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   Image,
-  TextInput,
   Pressable,
   Dimensions,
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, MapPin, Check, Crosshair, ChevronLeft, Info } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowRight, Sparkles } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../src/constants/theme';
-import { useLocation } from '../src/context/LocationContext';
+import { useAuth } from '../src/context/AuthContext';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function LandingLocationScreen() {
+const SLIDESHOW_PHOTOS = [
+  require('../assets/activities/painting-1.jpg'),
+  require('../assets/activities/painting-3.jpg'),
+  require('../assets/activities/painting-5.jpg'),
+  require('../assets/activities/painting-6.jpg'),
+];
+
+export default function LandingWelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { locationName, fullAddress, setLocationName } = useLocation();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [pulseAnim] = useState(() => new Animated.Value(1));
+  const { showSignInModal, signOut } = useAuth();
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Subtle pulsing animation on the pin
-  React.useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
+  // Auto-shift through the 4 photos every 3.8 seconds with smooth crossfade
+  useEffect(() => {
+    const timer = setInterval(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0.2,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentSlideIndex((prev) => (prev + 1) % SLIDESHOW_PHOTOS.length);
+        Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 500,
           useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [pulseAnim]);
+        }).start();
+      });
+    }, 3800);
 
-  const handleDeliverToPinned = () => {
-    router.replace('/(tabs)/home');
+    return () => clearInterval(timer);
+  }, [fadeAnim]);
+
+  const handleContinueAsGuest = () => {
+    signOut();
+    router.push('/location');
+  };
+
+  const handleLogin = () => {
+    showSignInModal('nav');
+    router.push('/location');
+  };
+
+  const handleRegister = () => {
+    showSignInModal('nav');
+    router.push('/location');
   };
 
   return (
     <View style={styles.container}>
-      {/* Cinematic Kisumu Map Background */}
-      <View style={styles.mapContainer}>
-        <Image
-          source={require('../assets/images/kisumu-map-landing.jpg')}
-          style={styles.mapImage}
-          resizeMode="cover"
-        />
+      {/* Background Slideshow Image with smooth Animated Crossfade */}
+      <Animated.Image
+        source={SLIDESHOW_PHOTOS[currentSlideIndex]}
+        style={[styles.backgroundImage, { opacity: fadeAnim }]}
+        resizeMode="cover"
+      />
 
-        {/* Center Pinned Marker with GPS Radius */}
-        <Animated.View style={[styles.centerPinContainer, { transform: [{ scale: pulseAnim }] }]}>
-          {/* GPS Radius Overlay Tint */}
-          <View style={styles.gpsCircle} />
+      {/* Dark Gradient Overlay for optimal contrast and readability */}
+      <LinearGradient
+        colors={[
+          'rgba(0, 0, 0, 0.35)',
+          'rgba(0, 0, 0, 0.45)',
+          'rgba(0, 0, 0, 0.88)',
+        ]}
+        style={StyleSheet.absoluteFill}
+      />
 
-          {/* Delivering Here Speech Bubble */}
-          <View style={styles.deliveringBadge}>
-            <Text style={styles.deliveringText}>Delivering here</Text>
-            <View style={styles.deliveringArrow} />
-          </View>
-
-          {/* Red Map Pin with Center White Dot */}
-          <View style={styles.pinWrapper}>
-            <MapPin size={46} color={COLORS.primary} fill={COLORS.primary} />
-            <View style={styles.pinCenterDot} />
-            <View style={styles.blueGpsDot} />
-            <View style={styles.pinShadow} />
-          </View>
-        </Animated.View>
-
-        {/* Top Floating Bar with Back Button and Little Polo Logo */}
-        <View style={[styles.topBar, { top: Math.max(insets.top, 14) + 10 }]}>
-          <Pressable
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/home'))}
-            style={styles.backButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Back to Home"
-          >
-            <ChevronLeft size={24} color={COLORS.text} strokeWidth={2.5} />
-          </Pressable>
-
-          <View style={styles.topLogoContainer}>
+      {/* Content Container */}
+      <View
+        style={[
+          styles.contentWrapper,
+          {
+            paddingTop: Math.max(insets.top, 24) + 16,
+            paddingBottom: Math.max(insets.bottom, 20) + 16,
+          },
+        ]}
+      >
+        {/* Top Branding Section */}
+        <View style={styles.topBranding}>
+          <View style={styles.logoCircle}>
             <Image
               source={require('../assets/images/little-polo-logo.png')}
-              style={styles.topLogoImg}
+              style={styles.logoImage}
               resizeMode="contain"
             />
           </View>
+
+          <View style={styles.kisumuPill}>
+            <Sparkles size={12} color={COLORS.primaryLight} strokeWidth={2.4} />
+            <Text style={styles.kisumuText}>KISUMU, KENYA</Text>
+          </View>
+
+          <Text style={styles.brandTitle}>Little Polo Cafe</Text>
         </View>
 
-        {/* Floating GPS Crosshair Target Button */}
-        <Pressable
-          style={styles.gpsTargetButton}
-          onPress={() => {
-            setLocationName('LBDA HQ', 'LBDA HQ, East Kisumu, Kisumu, Kisumu C...');
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Locate current position"
-        >
-          <Crosshair size={22} color={COLORS.text} strokeWidth={2.2} />
-        </Pressable>
-
-        {/* Google watermark styling */}
-        <View style={styles.googleWatermark}>
-          <Text style={styles.googleText}>Google</Text>
-        </View>
-      </View>
-
-      {/* Bottom Sheet Delivery Confirmation Container */}
-      <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
-        {/* Drag handle pill */}
-        <View style={styles.dragHandle} />
-
-        {/* Search building, street or landmark input */}
-        <View style={styles.searchBar}>
-          <Search size={20} color="#9CA3AF" strokeWidth={2.2} style={styles.searchIcon} />
-          <TextInput
-            placeholder="Search building, street or landmark"
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-          />
-        </View>
-
-        {/* GPS accuracy note */}
-        <View style={styles.accuracyRow}>
-          <Info size={14} color="#6B7280" style={styles.infoIcon} />
-          <Text style={styles.accuracyText}>
-            GPS is accurate to about 10 m. Drag the map to fine-tune.
+        {/* Hero Tagline & Slideshow Progress Indicators */}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroHeading}>
+            Artisan Bites, Crafted Coffee & Creative Moments
           </Text>
+          <Text style={styles.heroSubtitle}>
+            Order freshly prepared meals to your doorstep or join us for Sunday family oil painting
+            on our garden terrace.
+          </Text>
+
+          {/* 4 Slideshow Progress Indicators */}
+          <View style={styles.indicatorRow}>
+            {SLIDESHOW_PHOTOS.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.indicatorBar,
+                  index === currentSlideIndex && styles.indicatorBarActive,
+                ]}
+              />
+            ))}
+          </View>
         </View>
 
-        {/* Pinned Location Card */}
-        <View style={styles.pinnedCard}>
-          <View style={styles.pinCircle}>
-            <MapPin size={18} color={COLORS.white} strokeWidth={2.5} />
-          </View>
-          <View style={styles.pinnedDetails}>
-            <Text style={styles.pinnedTitle}>Pinned location</Text>
-            <Text style={styles.pinnedSubtitle} numberOfLines={1}>
-              {fullAddress}
-            </Text>
-          </View>
-          <Check size={20} color={COLORS.heading} strokeWidth={2.5} style={styles.checkIcon} />
-        </View>
+        {/* Action Buttons Section */}
+        <View style={styles.buttonsSection}>
+          {/* 1. Continue as Guest (Distinctive Arrow Action Button) */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.guestArrowButton,
+              pressed && styles.guestButtonPressed,
+            ]}
+            onPress={handleContinueAsGuest}
+            accessibilityRole="button"
+            accessibilityLabel="Continue as Guest"
+          >
+            <View style={styles.guestTextCol}>
+              <Text style={styles.guestTitle}>Continue as Guest</Text>
+              <Text style={styles.guestSubtitle}>Explore menu and activities without an account</Text>
+            </View>
+            <View style={styles.guestArrowCircle}>
+              <ArrowRight size={20} color={COLORS.primary} strokeWidth={2.8} />
+            </View>
+          </Pressable>
 
-        {/* Primary Deliver to Pinned Location Button */}
-        <Pressable
-          onPress={handleDeliverToPinned}
-          style={({ pressed }) => [
-            styles.deliverButton,
-            pressed && styles.deliverButtonPressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Deliver to pinned location"
-        >
-          <Text style={styles.deliverButtonText}>Deliver to pinned location</Text>
-        </Pressable>
+          {/* Row of Ordinary Buttons: Log In & Register */}
+          <View style={styles.authRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.loginButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleLogin}
+              accessibilityRole="button"
+              accessibilityLabel="Log In"
+            >
+              <Text style={styles.loginButtonText}>Log In</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.registerButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleRegister}
+              accessibilityRole="button"
+              accessibilityLabel="Register"
+            >
+              <Text style={styles.registerButtonText}>Register</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -174,249 +193,175 @@ export default function LandingLocationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#0F172A',
   },
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#E5E7EB',
-  },
-  mapImage: {
-    width: '100%',
-    height: '100%',
-  },
-  centerPinContainer: {
+  backgroundImage: {
     position: 'absolute',
-    top: '32%',
+    top: 0,
     left: 0,
     right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    bottom: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
-  gpsCircle: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(59, 130, 246, 0.28)',
-    top: 10,
-  },
-  deliveringBadge: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    marginBottom: 4,
-    ...SHADOW.soft,
-  },
-  deliveringText: {
-    fontFamily: FONTS.semibold,
-    fontSize: 13,
-    color: COLORS.white,
-    letterSpacing: 0.2,
-  },
-  deliveringArrow: {
-    position: 'absolute',
-    bottom: -5,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 5,
-    borderRightWidth: 5,
-    borderTopWidth: 5,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: COLORS.primary,
-  },
-  pinWrapper: {
-    alignItems: 'center',
-    position: 'relative',
-  },
-  pinCenterDot: {
-    position: 'absolute',
-    top: 12,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.white,
-  },
-  blueGpsDot: {
-    position: 'absolute',
-    bottom: -4,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2563EB',
-    borderWidth: 2,
-    borderColor: COLORS.white,
-  },
-  pinShadow: {
-    width: 16,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    marginTop: 2,
-  },
-  topBar: {
-    position: 'absolute',
-    left: SPACING.lg,
-    right: SPACING.lg,
-    flexDirection: 'row',
+  contentWrapper: {
+    flex: 1,
     justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 10,
+    paddingHorizontal: SPACING.xl,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.white,
+  topBranding: {
+    alignItems: 'center',
+  },
+  logoCircle: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOW.soft,
-  },
-  topLogoContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOW.soft,
+    marginBottom: SPACING.sm,
     overflow: 'hidden',
   },
-  topLogoImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  logoImage: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
   },
-  gpsTargetButton: {
-    position: 'absolute',
-    right: SPACING.lg,
-    bottom: 24,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.white,
+  kisumuPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOW.soft,
+    backgroundColor: 'rgba(229, 26, 36, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(229, 26, 36, 0.45)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    gap: 6,
+    marginBottom: 6,
   },
-  googleWatermark: {
-    position: 'absolute',
-    left: SPACING.lg,
-    bottom: 12,
-  },
-  googleText: {
+  kisumuText: {
     fontFamily: FONTS.bold,
-    fontSize: 18,
-    color: '#4285F4',
+    fontSize: 10,
+    color: '#FEE2E2',
+    letterSpacing: 1.2,
+  },
+  brandTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 28,
+    color: COLORS.white,
     letterSpacing: -0.5,
   },
-  bottomSheet: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: SPACING.md,
+  heroSection: {
+    marginTop: 'auto',
+    marginBottom: SPACING.xl,
+  },
+  heroHeading: {
+    fontFamily: FONTS.bold,
+    fontSize: 24,
+    color: COLORS.white,
+    lineHeight: 32,
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: '#D1D5DB',
+    lineHeight: 21,
+    marginBottom: SPACING.lg,
+  },
+  indicatorRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  indicatorBar: {
+    width: 20,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  indicatorBarActive: {
+    width: 36,
+    backgroundColor: COLORS.primary,
+  },
+  buttonsSection: {
+    gap: SPACING.md,
+  },
+  guestArrowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: RADIUS.xxl,
+    paddingVertical: 14,
     paddingHorizontal: SPACING.lg,
     ...SHADOW.soft,
   },
-  dragHandle: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'center',
-    marginBottom: SPACING.lg,
+  guestButtonPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    transform: [{ scale: 0.99 }],
   },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    height: 48,
-    marginBottom: SPACING.sm,
-  },
-  searchIcon: {
-    marginRight: SPACING.sm,
-  },
-  searchInput: {
+  guestTextCol: {
     flex: 1,
-    fontFamily: FONTS.medium,
-    fontSize: FONT_SIZE.md,
-    color: COLORS.text,
-  },
-  accuracyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-    paddingHorizontal: 2,
-  },
-  infoIcon: {
-    marginRight: 6,
-  },
-  accuracyText: {
-    fontFamily: FONTS.regular,
-    fontSize: 12,
-    color: '#6B7280',
-    flex: 1,
-  },
-  pinnedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: RADIUS.md,
-    paddingVertical: 14,
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.xxl,
-  },
-  pinCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#18181B',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: SPACING.md,
   },
-  pinnedDetails: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  pinnedTitle: {
+  guestTitle: {
     fontFamily: FONTS.bold,
-    fontSize: 15,
-    color: COLORS.heading,
-    marginBottom: 2,
+    fontSize: 16,
+    color: COLORS.white,
   },
-  pinnedSubtitle: {
+  guestSubtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
+    fontSize: 11,
+    color: '#E5E7EB',
+    marginTop: 1,
   },
-  checkIcon: {
-    marginLeft: SPACING.sm,
+  guestArrowCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW.soft,
   },
-  deliverButton: {
-    width: '100%',
-    height: 54,
-    backgroundColor: '#121212',
+  authRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  loginButton: {
+    flex: 1,
+    height: 52,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
+    ...SHADOW.soft,
   },
-  deliverButtonPressed: {
-    backgroundColor: '#262626',
+  loginButtonText: {
+    fontFamily: FONTS.bold,
+    fontSize: 15,
+    color: '#0F172A',
   },
-  deliverButtonText: {
-    fontFamily: FONTS.semibold,
-    fontSize: FONT_SIZE.md,
+  registerButton: {
+    flex: 1,
+    height: 52,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW.soft,
+  },
+  registerButtonText: {
+    fontFamily: FONTS.bold,
+    fontSize: 15,
     color: COLORS.white,
-    letterSpacing: 0.2,
+  },
+  buttonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
 });
