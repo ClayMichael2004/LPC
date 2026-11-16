@@ -1,0 +1,60 @@
+package config
+
+import (
+	"os"
+	"strconv"
+)
+
+type Config struct {
+	Port               string
+	Env                string
+	DatabaseURL        string
+	RedisURL           string
+	RedisPassword      string
+	JWTSecret          string
+	JWTExpiryHours     int
+	OTPSenderEmail     string
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUser           string
+	SMTPPassword       string
+	CORSAllowedOrigins string
+	AdminEmail         string
+	AdminPassword      string
+}
+
+func Load() *Config {
+	return &Config{
+		Port:               getEnv("PORT", "8080"),
+		Env:                getEnv("ENV", "development"),
+		DatabaseURL:        getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/lpc_db?sslmode=disable"),
+		RedisURL:           getEnv("REDIS_URL", "localhost:6379"),
+		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
+		JWTSecret:          getEnv("JWT_SECRET", "little-polo-cafe-secret-key-east-africa-2026"),
+		JWTExpiryHours:     getEnvInt("JWT_EXPIRY_HOURS", 168),
+		OTPSenderEmail:     getEnv("OTP_SENDER_EMAIL", "mikewillmakeit2004@gmail.com"),
+		SMTPHost:           getEnv("SMTP_HOST", "smtp.gmail.com"),
+		SMTPPort:           getEnvInt("SMTP_PORT", 587),
+		SMTPUser:           getEnv("SMTP_USER", "mikewillmakeit2004@gmail.com"),
+		SMTPPassword:       getEnv("SMTP_PASSWORD", ""),
+		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
+		AdminEmail:         getEnv("ADMIN_EMAIL", "mikewillmakeit2004@gmail.com"),
+		AdminPassword:      getEnv("ADMIN_PASSWORD", "AdminLPC2026!"),
+	}
+}
+
+func getEnv(key, defaultVal string) string {
+	if val, ok := os.LookupEnv(key); ok && val != "" {
+		return val
+	}
+	return defaultVal
+}
+
+func getEnvInt(key string, defaultVal int) int {
+	if val, ok := os.LookupEnv(key); ok && val != "" {
+		if intVal, err := strconv.Atoi(val); err == nil {
+			return intVal
+		}
+	}
+	return defaultVal
+}
