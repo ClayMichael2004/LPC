@@ -7,10 +7,12 @@ import AppHeader from '../../src/components/AppHeader';
 import BannerCarousel from '../../src/components/BannerCarousel';
 import BrowseCategoriesSlideshow from '../../src/components/BrowseCategoriesSlideshow';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
+import { useCategory } from '../../src/context/CategoryContext';
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { selectCategoryAndNavigate } = useCategory();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -32,7 +34,7 @@ export default function HomeScreen() {
 
           {/* Feature Card 1: Blue Tint */}
           <Pressable
-            onPress={() => router.push({ pathname: '/(tabs)/menu', params: { categoryId: 'artisan-coffee' } })}
+            onPress={() => selectCategoryAndNavigate('artisan-coffee')}
             style={[styles.featureCard, { backgroundColor: COLORS.serviceBlueTint }]}
             accessibilityRole="button"
             accessibilityLabel="Explore Artisan Cold Brews"
@@ -53,7 +55,7 @@ export default function HomeScreen() {
 
           {/* Feature Card 2: Green Tint */}
           <Pressable
-            onPress={() => router.push({ pathname: '/(tabs)/menu', params: { categoryId: 'burgers' } })}
+            onPress={() => selectCategoryAndNavigate('burgers')}
             style={[styles.featureCard, { backgroundColor: COLORS.serviceGreenTint }]}
             accessibilityRole="button"
             accessibilityLabel="Explore Fresh Grilled Gourmet Burgers"
@@ -74,7 +76,7 @@ export default function HomeScreen() {
 
           {/* Feature Card 3: Pink Tint */}
           <Pressable
-            onPress={() => router.push({ pathname: '/(tabs)/menu', params: { categoryId: 'breakfast' } })}
+            onPress={() => selectCategoryAndNavigate('breakfast')}
             style={[styles.featureCard, { backgroundColor: COLORS.servicePinkTint }]}
             accessibilityRole="button"
             accessibilityLabel="Explore Sunrise Breakfast"

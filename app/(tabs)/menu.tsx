@@ -16,11 +16,12 @@ import CartFloatingBar from '../../src/components/CartFloatingBar';
 import { MENU_TABS, PRODUCTS } from '../../src/constants/menuData';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SPACING } from '../../src/constants/theme';
 import { useCart } from '../../src/context/CartContext';
+import { useCategory } from '../../src/context/CategoryContext';
 
 export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ categoryId?: string }>();
-  const [selectedCategory, setSelectedCategory] = useState<string>('burgers');
+  const { selectedCategory, setSelectedCategory } = useCategory();
   const [searchQuery, setSearchQuery] = useState('');
   const tabScrollRef = useRef<ScrollView>(null);
   const { totalCount } = useCart();
@@ -33,19 +34,22 @@ export default function MenuScreen() {
     });
   };
 
+  // Scroll to active tab whenever selectedCategory updates
+  useEffect(() => {
+    const tabIndex = MENU_TABS.findIndex((t) => t.id === selectedCategory);
+    if (tabIndex > -1) {
+      setTimeout(() => {
+        tabScrollRef.current?.scrollTo({
+          x: Math.max(0, tabIndex * 95 - 40),
+          animated: true,
+        });
+      }, 80);
+    }
+  }, [selectedCategory]);
+
   useEffect(() => {
     if (params.categoryId) {
-      const targetId = params.categoryId;
-      setSelectedCategory(targetId);
-      const tabIndex = MENU_TABS.findIndex((t) => t.id === targetId);
-      if (tabIndex > -1) {
-        setTimeout(() => {
-          tabScrollRef.current?.scrollTo({
-            x: Math.max(0, tabIndex * 95 - 40),
-            animated: true,
-          });
-        }, 120);
-      }
+      setSelectedCategory(params.categoryId);
     }
   }, [params.categoryId]);
 

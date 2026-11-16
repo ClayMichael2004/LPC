@@ -13,6 +13,7 @@ import {
 import { LocationProvider } from '../src/context/LocationContext';
 import { CartProvider } from '../src/context/CartContext';
 import { AuthProvider } from '../src/context/AuthContext';
+import { CategoryProvider } from '../src/context/CategoryContext';
 import SystemBarBlur from '../src/components/SystemBarBlur';
 import SignInSheetModal from '../src/components/SignInSheetModal';
 
@@ -41,35 +42,37 @@ export default function RootLayout() {
       <LocationProvider>
         <CartProvider>
           <AuthProvider>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-              <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
-              <Stack.Screen name="location" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="auth/login" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="auth/register" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="profile/personal-info" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="profile/edit-details" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="profile/orders" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="profile/communication" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="activities/gallery"
-                options={{ headerShown: false, animation: 'slide_from_right' }}
-              />
-              <Stack.Screen
-                name="product/[id]"
-                options={{
-                  presentation: 'modal',
-                  animation: 'slide_from_bottom',
-                }}
-              />
-              <Stack.Screen name="checkout/delivery" />
-              <Stack.Screen name="checkout/payment" />
-              <Stack.Screen name="checkout/confirmation" />
-            </Stack>
-            <SystemBarBlur />
-            <SignInSheetModal />
+            <CategoryProvider>
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+                <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
+                <Stack.Screen name="location" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="auth/login" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                <Stack.Screen name="auth/register" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="profile/personal-info" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="profile/edit-details" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="profile/orders" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="profile/communication" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="activities/gallery"
+                  options={{ headerShown: false, animation: 'slide_from_right' }}
+                />
+                <Stack.Screen
+                  name="product/[id]"
+                  options={{
+                    presentation: 'modal',
+                    animation: 'slide_from_bottom',
+                  }}
+                />
+                <Stack.Screen name="checkout/delivery" />
+                <Stack.Screen name="checkout/payment" />
+                <Stack.Screen name="checkout/confirmation" />
+              </Stack>
+              <SystemBarBlur />
+              <SignInSheetModal />
+            </CategoryProvider>
           </AuthProvider>
         </CartProvider>
       </LocationProvider>

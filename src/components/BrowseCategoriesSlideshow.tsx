@@ -14,12 +14,14 @@ import { useRouter } from 'expo-router';
 import { CATEGORIES } from '../constants/menuData';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../constants/theme';
 import { Category } from '../types';
+import { useCategory } from '../context/CategoryContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SLIDE_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
 
 export default function BrowseCategoriesSlideshow() {
   const router = useRouter();
+  const { selectCategoryAndNavigate } = useCategory();
   const [activePage, setActivePage] = useState(0);
   const activePageRef = useRef(0);
   activePageRef.current = activePage;
@@ -56,11 +58,8 @@ export default function BrowseCategoriesSlideshow() {
   };
 
   const handleCategoryPress = (category: Category) => {
-    // Navigate to menu tab with selected category
-    router.navigate({
-      pathname: '/(tabs)/menu',
-      params: { categoryId: category.id },
-    });
+    // Navigate to menu tab with exact selected category
+    selectCategoryAndNavigate(category.id);
   };
 
   return (

@@ -197,20 +197,18 @@ export default function ForgotPasswordScreen() {
           </Text>
         </View>
 
-        {/* Display Email Input Field */}
+        {/* Display Email Field (Uneditable / Locked) */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>Registered Email</Text>
-          <View style={styles.inputWrapper}>
-            <Mail size={18} color="#6B7280" style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, styles.inputWrapperLocked]}>
+            <Mail size={18} color="#9CA3AF" style={styles.inputIcon} />
             <TextInput
               value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              style={styles.textInput}
+              editable={false}
+              selectTextOnFocus={false}
+              style={[styles.textInput, styles.textInputLocked]}
             />
+            <Lock size={16} color="#9CA3AF" strokeWidth={2} />
           </View>
         </View>
 
@@ -452,6 +450,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     backgroundColor: '#F9FAFB',
   },
+  inputWrapperLocked: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+  },
   inputIcon: {
     marginRight: 10,
   },
@@ -460,6 +462,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: 15,
     color: COLORS.heading,
+  },
+  textInputLocked: {
+    color: '#6B7280',
+    fontFamily: FONTS.medium,
   },
   channelCardsRow: {
     gap: SPACING.md,
