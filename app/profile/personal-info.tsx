@@ -5,6 +5,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  Image,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -68,11 +69,13 @@ export default function PersonalInfoScreen() {
           { paddingBottom: Math.max(insets.bottom, 20) + 90 },
         ]}
       >
-        {/* Brand Bars (3 Vertical Crimson Stripes matching reference) */}
-        <View style={styles.brandBarsRow}>
-          <View style={styles.brandBar} />
-          <View style={styles.brandBar} />
-          <View style={styles.brandBar} />
+        {/* Little Polo Logo */}
+        <View style={styles.brandLogoRow}>
+          <Image
+            source={require('../../assets/images/little-polo-logo.png')}
+            style={styles.brandLogoImage}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Section Heading */}
@@ -179,17 +182,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.md,
   },
-  brandBarsRow: {
-    flexDirection: 'row',
+  brandLogoRow: {
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     marginBottom: SPACING.xl,
   },
-  brandBar: {
-    width: 14,
-    height: 38,
-    backgroundColor: COLORS.primary,
-    borderRadius: 2,
+  brandLogoImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   sectionHeader: {
     fontFamily: FONTS.bold,

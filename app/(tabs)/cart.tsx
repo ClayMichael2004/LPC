@@ -150,9 +150,9 @@ export default function CartScreen() {
         </View>
       )}
 
-      {/* Bottom Floating Checkout Action Button */}
+      {/* Bottom Floating Checkout Action Button with generous clearance above the floating bottom nav */}
       {items.length > 0 && (
-        <View style={[styles.bottomBarWrapper, { bottom: Math.max(insets.bottom, 12) + 68 }]}>
+        <View style={[styles.bottomBarWrapper, { bottom: Math.max(insets.bottom, 14) + 82 }]}>
           <Pressable
             onPress={handleCheckout}
             style={({ pressed }) => [
@@ -348,8 +348,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: SPACING.xxxl,
-    marginTop: 40,
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: 80,
   },
   emptyIconCircle: {
     width: 72,

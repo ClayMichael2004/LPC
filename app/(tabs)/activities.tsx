@@ -85,13 +85,6 @@ export default function ActivitiesScreen() {
       >
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <View style={styles.badgeRow}>
-            <View style={styles.badge}>
-              <Sparkles size={13} color={COLORS.primary} strokeWidth={2.4} />
-              <Text style={styles.badgeText}>FAMILY & KIDS · EVERY SUNDAY</Text>
-            </View>
-          </View>
-
           <Text style={styles.heroTitle}>Sunday Family Oil Painting</Text>
           <Text style={styles.heroSubtitle}>
             Guided sketches, child-safe oil paints, and creative fun in our cafe garden.
@@ -264,23 +257,18 @@ export default function ActivitiesScreen() {
             ))}
           </View>
 
-          {/* See More Button with Arrow */}
+          {/* See More Button with Arrow (Icon removed from left) */}
           <Pressable
             style={styles.seeMoreCard}
             onPress={() => router.push('/activities/gallery')}
             accessibilityRole="button"
             accessibilityLabel="See more gallery photos"
           >
-            <View style={styles.seeMoreLeft}>
-              <View style={styles.seeMoreIconCircle}>
-                <Palette size={20} color={COLORS.primary} strokeWidth={2.2} />
-              </View>
-              <View style={styles.seeMoreTextGroup}>
-                <Text style={styles.seeMoreTitle}>See All Photos</Text>
-                <Text style={styles.seeMoreSub}>
-                  View all {GALLERY_PHOTOS.length} session pictures
-                </Text>
-              </View>
+            <View style={styles.seeMoreTextGroup}>
+              <Text style={styles.seeMoreTitle}>See All Photos</Text>
+              <Text style={styles.seeMoreSub}>
+                View all {GALLERY_PHOTOS.length} session pictures
+              </Text>
             </View>
             <View style={styles.seeMoreArrowCircle}>
               <ArrowRight size={20} color={COLORS.white} strokeWidth={2.4} />

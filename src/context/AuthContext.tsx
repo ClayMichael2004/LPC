@@ -14,10 +14,11 @@ interface AuthContextType {
 
 const defaultUser: UserProfile = {
   id: 'usr-1',
-  name: 'Michael',
+  name: 'Michael Clay',
   initials: 'MC',
   phone: '+254 712 345 678',
-  email: 'michael.ochieng@kisumu.ke',
+  email: 'michaelclay2225@gmail.com',
+  dob: '15/06/1998',
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

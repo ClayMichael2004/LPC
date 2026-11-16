@@ -27,12 +27,24 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = () => {
     if (!firstName.trim() || (!email.trim() && !phone.trim())) {
       Alert.alert('Required', 'Please provide your name and an email or phone number.');
+      return;
+    }
+
+    if (!password) {
+      Alert.alert('Required', 'Please create a password.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Password Mismatch', 'The passwords you entered do not match. Please verify and try again.');
       return;
     }
 
@@ -194,6 +206,31 @@ export default function RegisterScreen() {
               style={styles.eyeBtn}
             >
               {showPassword ? (
+                <EyeOff size={18} color="#6B7280" />
+              ) : (
+                <Eye size={18} color="#6B7280" />
+              )}
+            </Pressable>
+          </View>
+
+          {/* Confirm Password Field */}
+          <Text style={styles.inputLabel}>Confirm Password*</Text>
+          <View style={styles.inputWrapper}>
+            <Lock size={16} color="#9CA3AF" style={styles.inputIcon} />
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Re-enter your password"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry={!showConfirmPassword}
+              style={styles.textInput}
+            />
+            <Pressable
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.eyeBtn}
+            >
+              {showConfirmPassword ? (
                 <EyeOff size={18} color="#6B7280" />
               ) : (
                 <Eye size={18} color="#6B7280" />

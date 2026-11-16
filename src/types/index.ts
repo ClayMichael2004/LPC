@@ -48,6 +48,7 @@ export interface UserProfile {
   initials: string;
   phone: string;
   email: string;
+  dob?: string;
 }
 
 export interface Category {
