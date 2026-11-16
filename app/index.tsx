@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight, Sparkles } from 'lucide-react-native';
+import { ArrowRight } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
 
@@ -57,13 +57,11 @@ export default function LandingWelcomeScreen() {
   };
 
   const handleLogin = () => {
-    showSignInModal('nav');
-    router.push('/location');
+    router.push('/auth/login');
   };
 
   const handleRegister = () => {
-    showSignInModal('nav');
-    router.push('/location');
+    router.push('/auth/register');
   };
 
   return (
@@ -106,7 +104,6 @@ export default function LandingWelcomeScreen() {
           </View>
 
           <View style={styles.kisumuPill}>
-            <Sparkles size={12} color={COLORS.primaryLight} strokeWidth={2.4} />
             <Text style={styles.kisumuText}>KISUMU, KENYA</Text>
           </View>
 
@@ -139,26 +136,7 @@ export default function LandingWelcomeScreen() {
 
         {/* Action Buttons Section */}
         <View style={styles.buttonsSection}>
-          {/* 1. Continue as Guest (Distinctive Arrow Action Button) */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.guestArrowButton,
-              pressed && styles.guestButtonPressed,
-            ]}
-            onPress={handleContinueAsGuest}
-            accessibilityRole="button"
-            accessibilityLabel="Continue as Guest"
-          >
-            <View style={styles.guestTextCol}>
-              <Text style={styles.guestTitle}>Continue as Guest</Text>
-              <Text style={styles.guestSubtitle}>Explore menu and activities without an account</Text>
-            </View>
-            <View style={styles.guestArrowCircle}>
-              <ArrowRight size={20} color={COLORS.primary} strokeWidth={2.8} />
-            </View>
-          </Pressable>
-
-          {/* Row of Ordinary Buttons: Log In & Register */}
+          {/* 1. Row of Ordinary Buttons: Log In & Register (Come First) */}
           <View style={styles.authRow}>
             <Pressable
               style={({ pressed }) => [
@@ -184,6 +162,25 @@ export default function LandingWelcomeScreen() {
               <Text style={styles.registerButtonText}>Register</Text>
             </Pressable>
           </View>
+
+          {/* 2. Continue as Guest (Distinctive Arrow Action Button Below) */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.guestArrowButton,
+              pressed && styles.guestButtonPressed,
+            ]}
+            onPress={handleContinueAsGuest}
+            accessibilityRole="button"
+            accessibilityLabel="Continue as Guest"
+          >
+            <View style={styles.guestTextCol}>
+              <Text style={styles.guestTitle}>Continue as Guest</Text>
+              <Text style={styles.guestSubtitle}>Explore menu and activities without an account</Text>
+            </View>
+            <View style={styles.guestArrowCircle}>
+              <ArrowRight size={20} color={COLORS.primary} strokeWidth={2.8} />
+            </View>
+          </Pressable>
         </View>
       </View>
     </View>

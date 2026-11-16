@@ -10,6 +10,7 @@ import {
   Animated,
   ActivityIndicator,
   FlatList,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -189,100 +190,138 @@ export default function LocationScreen() {
         </View>
       </View>
 
-      {/* Bottom Sheet Delivery Confirmation Container */}
+      {/* Bottom 2/3 Delivery Confirmation Container */}
       <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
-        {/* Drag handle */}
-        <View style={styles.dragHandle} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.bottomScrollContent}
+        >
+          {/* Drag handle */}
+          <View style={styles.dragHandle} />
 
-        {/* Search Input */}
-        <View style={styles.searchBar}>
-          <Search size={20} color="#9CA3AF" strokeWidth={2.2} style={styles.searchIcon} />
-          <TextInput
-            placeholder="Search building, street or landmark"
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={(text) => {
-              setSearchQuery(text);
-              setIsSearching(text.length > 0);
-            }}
-            onFocus={() => setIsSearching(searchQuery.length > 0)}
-            style={styles.searchInput}
-          />
-          {searchQuery.length > 0 && (
-            <Pressable
-              onPress={() => {
-                setSearchQuery('');
-                setIsSearching(false);
+          {/* Search Input */}
+          <View style={styles.searchBar}>
+            <Search size={20} color="#9CA3AF" strokeWidth={2.2} style={styles.searchIcon} />
+            <TextInput
+              placeholder="Search building, street or landmark"
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setIsSearching(text.length > 0);
               }}
-              style={styles.clearSearchBtn}
-            >
-              <Text style={styles.clearSearchText}>Clear</Text>
-            </Pressable>
-          )}
-        </View>
-
-        {/* Search Results Dropdown (if searching) */}
-        {isSearching && filteredLandmarks.length > 0 && (
-          <View style={styles.searchResultsContainer}>
-            {filteredLandmarks.map((item, idx) => (
+              onFocus={() => setIsSearching(searchQuery.length > 0)}
+              style={styles.searchInput}
+            />
+            {searchQuery.length > 0 && (
               <Pressable
-                key={idx}
-                style={styles.searchResultItem}
                 onPress={() => {
-                  setLocationName(item.name, item.address);
                   setSearchQuery('');
                   setIsSearching(false);
-                  setGpsStatusMessage(`Selected landmark: ${item.name}`);
                 }}
+                style={styles.clearSearchBtn}
               >
-                <Navigation2 size={16} color={COLORS.primary} style={styles.searchResultIcon} />
-                <View style={styles.searchResultTextGroup}>
-                  <Text style={styles.searchResultName}>{item.name}</Text>
-                  <Text style={styles.searchResultAddress} numberOfLines={1}>
-                    {item.address}
-                  </Text>
-                </View>
+                <Text style={styles.clearSearchText}>Clear</Text>
               </Pressable>
-            ))}
+            )}
           </View>
-        )}
 
-        {/* GPS accuracy note */}
-        <View style={styles.accuracyRow}>
-          <Info size={14} color="#6B7280" style={styles.infoIcon} />
-          <Text style={styles.accuracyText} numberOfLines={2}>
-            {gpsStatusMessage}
-          </Text>
-        </View>
+          {/* Search Results Dropdown (if searching) */}
+          {isSearching && filteredLandmarks.length > 0 && (
+            <View style={styles.searchResultsContainer}>
+              {filteredLandmarks.map((item, idx) => (
+                <Pressable
+                  key={idx}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    setLocationName(item.name, item.address);
+                    setSearchQuery('');
+                    setIsSearching(false);
+                    setGpsStatusMessage(`Selected landmark: ${item.name}`);
+                  }}
+                >
+                  <Navigation2 size={16} color={COLORS.primary} style={styles.searchResultIcon} />
+                  <View style={styles.searchResultTextGroup}>
+                    <Text style={styles.searchResultName}>{item.name}</Text>
+                    <Text style={styles.searchResultAddress} numberOfLines={1}>
+                      {item.address}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
-        {/* Pinned Location Card */}
-        <View style={styles.pinnedCard}>
-          <View style={styles.pinCircle}>
-            <MapPin size={18} color={COLORS.white} strokeWidth={2.5} />
-          </View>
-          <View style={styles.pinnedDetails}>
-            <Text style={styles.pinnedTitle}>Pinned location</Text>
-            <Text style={styles.pinnedSubtitle} numberOfLines={1}>
-              {fullAddress || locationName}
+          {/* GPS accuracy note */}
+          <View style={styles.accuracyRow}>
+            <Info size={14} color="#6B7280" style={styles.infoIcon} />
+            <Text style={styles.accuracyText} numberOfLines={2}>
+              {gpsStatusMessage}
             </Text>
           </View>
-          <View style={styles.checkCircle}>
-            <Check size={18} color={COLORS.text} strokeWidth={2.8} />
-          </View>
-        </View>
 
-        {/* Deliver to pinned location button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.deliverButton,
-            pressed && styles.deliverButtonPressed,
-          ]}
-          onPress={handleDeliverToPinned}
-          accessibilityRole="button"
-          accessibilityLabel="Deliver to pinned location"
-        >
-          <Text style={styles.deliverButtonText}>Deliver to pinned location</Text>
-        </Pressable>
+          {/* Pinned Location Card */}
+          <View style={styles.pinnedCard}>
+            <View style={styles.pinCircle}>
+              <MapPin size={18} color={COLORS.white} strokeWidth={2.5} />
+            </View>
+            <View style={styles.pinnedDetails}>
+              <Text style={styles.pinnedTitle}>Pinned location</Text>
+              <Text style={styles.pinnedSubtitle} numberOfLines={1}>
+                {fullAddress || locationName}
+              </Text>
+            </View>
+            <View style={styles.checkCircle}>
+              <Check size={18} color={COLORS.text} strokeWidth={2.8} />
+            </View>
+          </View>
+
+          {/* Quick Select Landmarks */}
+          <View style={styles.landmarksSection}>
+            <Text style={styles.landmarksTitle}>POPULAR DELIVERY ZONES</Text>
+            <View style={styles.landmarksGrid}>
+              {KISUMU_LANDMARKS.slice(0, 4).map((landmark, idx) => {
+                const isSelected = locationName === landmark.name;
+                return (
+                  <Pressable
+                    key={idx}
+                    onPress={() => {
+                      setLocationName(landmark.name, landmark.address);
+                      setGpsStatusMessage(`Selected landmark: ${landmark.name}`);
+                    }}
+                    style={[
+                      styles.landmarkChip,
+                      isSelected && styles.landmarkChipSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.landmarkChipText,
+                        isSelected && styles.landmarkChipTextSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {landmark.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Deliver to pinned location button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.deliverButton,
+              pressed && styles.deliverButtonPressed,
+            ]}
+            onPress={handleDeliverToPinned}
+            accessibilityRole="button"
+            accessibilityLabel="Deliver to pinned location"
+          >
+            <Text style={styles.deliverButtonText}>Deliver to pinned location</Text>
+          </Pressable>
+        </ScrollView>
       </View>
     </View>
   );
@@ -294,7 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   mapContainer: {
-    flex: 1,
+    height: Math.round(SCREEN_HEIGHT * 0.33),
     position: 'relative',
     backgroundColor: '#EAE6DF',
   },
@@ -304,7 +343,7 @@ const styles = StyleSheet.create({
   },
   centerPinContainer: {
     position: 'absolute',
-    top: '38%',
+    top: '36%',
     left: '50%',
     marginLeft: -80,
     marginTop: -80,
@@ -437,13 +476,17 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   bottomSheet: {
+    flex: 1,
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingHorizontal: SPACING.lg,
     ...SHADOW.soft,
-    marginTop: -20,
+    marginTop: -16,
+  },
+  bottomScrollContent: {
+    paddingBottom: SPACING.md,
   },
   dragHandle: {
     width: 40,
@@ -565,6 +608,42 @@ const styles = StyleSheet.create({
   },
   checkCircle: {
     marginLeft: SPACING.sm,
+  },
+  landmarksSection: {
+    marginBottom: SPACING.lg,
+  },
+  landmarksTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    letterSpacing: 1.1,
+    marginBottom: SPACING.sm,
+  },
+  landmarksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  landmarkChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: RADIUS.full,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  landmarkChipSelected: {
+    backgroundColor: '#FEE2E2',
+    borderColor: COLORS.primary,
+  },
+  landmarkChipText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: COLORS.text,
+  },
+  landmarkChipTextSelected: {
+    fontFamily: FONTS.semibold,
+    color: COLORS.primaryDark,
   },
   deliverButton: {
     height: 52,

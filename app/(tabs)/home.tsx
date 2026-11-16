@@ -141,8 +141,9 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   sectionTitle: {
-    fontFamily: FONTS.bold,
+    fontFamily: FONTS.sfDisplay,
     fontSize: 18,
+    fontWeight: '700',
     color: COLORS.heading,
     letterSpacing: 0.5,
     marginBottom: SPACING.xs,

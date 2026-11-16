@@ -21,6 +21,8 @@ const SLIDE_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
 export default function BrowseCategoriesSlideshow() {
   const router = useRouter();
   const [activePage, setActivePage] = useState(0);
+  const activePageRef = useRef(0);
+  activePageRef.current = activePage;
   const scrollRef = useRef<ScrollView>(null);
   const isInteracting = useRef(false);
 
@@ -31,18 +33,19 @@ export default function BrowseCategoriesSlideshow() {
   }
 
   useEffect(() => {
+    if (pages.length <= 1) return;
     const timer = setInterval(() => {
-      if (isInteracting.current || pages.length <= 1) return;
-      const nextPage = (activePage + 1) % pages.length;
+      if (isInteracting.current) return;
+      const nextPage = (activePageRef.current + 1) % pages.length;
       scrollRef.current?.scrollTo({
         x: nextPage * (SLIDE_WIDTH + SPACING.lg),
         animated: true,
       });
       setActivePage(nextPage);
-    }, 4800);
+    }, 4200);
 
     return () => clearInterval(timer);
-  }, [activePage, pages.length]);
+  }, [pages.length]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -139,8 +142,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   sectionHeader: {
-    fontFamily: FONTS.bold,
+    fontFamily: FONTS.sfDisplay,
     fontSize: 18,
+    fontWeight: '700',
     color: COLORS.heading,
     letterSpacing: 0.5,
     marginHorizontal: SPACING.lg,
@@ -185,7 +189,8 @@ const styles = StyleSheet.create({
     height: '85%',
   },
   categoryName: {
-    fontFamily: FONTS.semibold,
+    fontFamily: FONTS.sfText,
+    fontWeight: '600',
     fontSize: FONT_SIZE.md,
     color: COLORS.heading,
     textAlign: 'center',

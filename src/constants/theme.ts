@@ -127,10 +127,22 @@ const fontFallback = Platform.select({
   default: 'sans-serif',
 });
 
+const sfDisplayFont = Platform.select({
+  ios: 'SF Pro Display',
+  default: 'SF Pro Display, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+});
+
+const sfTextFont = Platform.select({
+  ios: 'SF Pro Text',
+  default: 'SF Pro Text, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+});
+
 export const FONTS = {
   regular: 'Poppins_400Regular',
   medium: 'Poppins_500Medium',
   semibold: 'Poppins_600SemiBold',
   bold: 'Poppins_700Bold',
+  sfDisplay: sfDisplayFont,
+  sfText: sfTextFont,
   fallback: fontFallback,
 };

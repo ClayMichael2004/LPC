@@ -56,7 +56,10 @@ export default function ProfileScreen() {
             <Text style={styles.greetingText}>Hi {displayName}!</Text>
             <Pressable
               style={styles.editInfoBtn}
+              onPress={() => router.push('/profile/personal-info')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Edit personal info"
             >
               <Text style={styles.editInfoText}>Edit personal info</Text>
               <Pencil size={13} color={COLORS.heading} strokeWidth={2.4} style={styles.editIcon} />
@@ -66,6 +69,7 @@ export default function ProfileScreen() {
           {/* Bell Icon */}
           <Pressable
             style={styles.bellBtn}
+            onPress={() => router.push('/notifications')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
@@ -79,6 +83,7 @@ export default function ProfileScreen() {
           {/* Row 1: Order history */}
           <Pressable
             style={styles.menuRow}
+            onPress={() => router.push('/profile/orders')}
             accessibilityRole="button"
             accessibilityLabel="Order history"
           >
@@ -96,6 +101,7 @@ export default function ProfileScreen() {
           {/* Row 2: Communication preferences */}
           <Pressable
             style={styles.menuRow}
+            onPress={() => router.push('/profile/communication')}
             accessibilityRole="button"
             accessibilityLabel="Communication preferences"
           >
@@ -128,7 +134,7 @@ export default function ProfileScreen() {
             </Pressable>
           ) : (
             <Pressable
-              onPress={handleSignIn}
+              onPress={() => router.push('/auth/login')}
               style={styles.menuRow}
               accessibilityRole="button"
               accessibilityLabel="Sign in"
