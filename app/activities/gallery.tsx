@@ -80,7 +80,7 @@ export default function ActivitiesGalleryScreen() {
       >
         <View style={styles.introRow}>
           <Text style={styles.introText}>
-            Tap any photo to view in high resolution. Every Sunday 12:00 PM – 2:00 PM at Little Polo Cafe.
+            Tap any photo to expand. Held Sundays 12–2 PM.
           </Text>
           <View style={styles.countBadge}>
             <Text style={styles.countText}>{ALL_GALLERY_PHOTOS.length} Photos</Text>
@@ -109,9 +109,9 @@ export default function ActivitiesGalleryScreen() {
 
         {/* WhatsApp Booking Card */}
         <View style={styles.ctaCard}>
-          <Text style={styles.ctaTitle}>Book Next Sunday’s Session</Text>
+          <Text style={styles.ctaTitle}>Book Sunday Painting</Text>
           <Text style={styles.ctaSubtitle}>
-            Bring the kids for fun sketches and oil painting in our garden terrace.
+            Reserve materials and a spot for your child.
           </Text>
 
           <Pressable
@@ -121,12 +121,12 @@ export default function ActivitiesGalleryScreen() {
             accessibilityLabel="Book an Appointment via WhatsApp"
           >
             <MessageCircle size={22} color={COLORS.white} strokeWidth={2.4} style={styles.waIcon} />
-            <Text style={styles.whatsappButtonText}>Book an Appointment (via WhatsApp)</Text>
+            <Text style={styles.whatsappButtonText}>Book via WhatsApp</Text>
           </Pressable>
 
           <View style={styles.ctaFooterRow}>
             <ShieldCheck size={14} color={COLORS.textSecondary} strokeWidth={2} />
-            <Text style={styles.ctaFooterText}>Direct WhatsApp booking: +254 704 769 219</Text>
+            <Text style={styles.ctaFooterText}>WhatsApp +254 704 769 219</Text>
           </View>
         </View>
       </ScrollView>

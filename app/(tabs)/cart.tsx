@@ -59,7 +59,7 @@ export default function CartScreen() {
       {items.length > 0 ? (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: 170 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 190 }]}
         >
           {/* Cart Item Cards */}
           <View style={styles.itemsList}>

@@ -18,7 +18,7 @@ export default function HomeScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 110 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 130 }]}
       >
         {/* Top Hero Cards (Auto-advancing interval + manual horizontal scroll) */}
         <BannerCarousel />

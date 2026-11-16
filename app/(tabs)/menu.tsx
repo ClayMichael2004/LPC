@@ -127,7 +127,7 @@ export default function MenuScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: totalCount > 0 ? 170 : 110 },
+          { paddingBottom: totalCount > 0 ? 190 : 130 },
         ]}
       >
         {/* Category Header */}

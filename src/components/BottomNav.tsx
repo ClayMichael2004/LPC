@@ -85,6 +85,7 @@ export default function BottomNav({ state, descriptors, navigation }: BottomNavP
                   { color: isFocused ? activeColor : inactiveColor },
                   isFocused && styles.labelFocused,
                 ]}
+                numberOfLines={1}
               >
                 {label}
               </Text>

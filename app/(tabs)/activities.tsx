@@ -94,8 +94,7 @@ export default function ActivitiesScreen() {
 
           <Text style={styles.heroTitle}>Sunday Family Oil Painting</Text>
           <Text style={styles.heroSubtitle}>
-            A fun, hands-on artistic afternoon where children receive guided sketches to paint using rich
-            oil paints. Bring out your little one’s inner artist while enjoying relaxing cafe bites!
+            Guided sketches, child-safe oil paints, and creative fun in our cafe garden.
           </Text>
         </View>
 
@@ -108,10 +107,10 @@ export default function ActivitiesScreen() {
             </View>
             <View style={styles.highlightTextCol}>
               <Text style={[styles.highlightTitle, { color: COLORS.serviceGreenIcon }]}>
-                Every Sunday · 12:00 PM – 2:00 PM
+                Sundays · 12:00 PM – 2:00 PM
               </Text>
               <Text style={styles.highlightDesc}>
-                A relaxed 2-hour guided painting workshop designed specifically for kids and families.
+                2-hour guided painting workshop for kids and parents.
               </Text>
             </View>
           </View>
@@ -123,10 +122,10 @@ export default function ActivitiesScreen() {
             </View>
             <View style={styles.highlightTextCol}>
               <Text style={[styles.highlightTitle, { color: COLORS.serviceBlueIcon }]}>
-                Guided Sketches & Oil Paints
+                Sketches & Oil Paints
               </Text>
               <Text style={styles.highlightDesc}>
-                Kids pick from fun sketches, provided with safe oil paints, brushes, palettes, and canvas.
+                Sketch sheets, child-safe paints, and take-home canvas provided.
               </Text>
             </View>
           </View>
@@ -138,10 +137,10 @@ export default function ActivitiesScreen() {
             </View>
             <View style={styles.highlightTextCol}>
               <Text style={[styles.highlightTitle, { color: COLORS.servicePinkIcon }]}>
-                Garden Terrace + Kid's Treat
+                Garden Terrace + Treat
               </Text>
               <Text style={styles.highlightDesc}>
-                Held in the airy cafe garden with a complimentary beverage/treat for every little painter!
+                Held in our leafy terrace. Includes a sweet treat for every child.
               </Text>
             </View>
           </View>
@@ -150,7 +149,6 @@ export default function ActivitiesScreen() {
         {/* How It Works Accordion */}
         <View style={styles.stepsSection}>
           <Text style={styles.sectionHeaderTitle}>HOW IT WORKS</Text>
-          <Text style={styles.sectionHeaderSub}>Tap each step to view instructions</Text>
           
           <View style={styles.stepsCard}>
             {/* Step 1 */}
@@ -173,7 +171,7 @@ export default function ActivitiesScreen() {
             {expandedStep === 1 && (
               <View style={styles.stepAccordionBody}>
                 <Text style={styles.stepSubtitle}>
-                  Choose your child’s favorite outline from our weekly collection of cartoon and animal sketches.
+                  Choose a cartoon or animal outline sketch to paint.
                 </Text>
               </View>
             )}
@@ -200,7 +198,7 @@ export default function ActivitiesScreen() {
             {expandedStep === 2 && (
               <View style={styles.stepAccordionBody}>
                 <Text style={styles.stepSubtitle}>
-                  Our friendly facilitators guide children with color mixing, brushstrokes, and easy techniques.
+                  Paint with vibrant colors and friendly guide tips.
                 </Text>
               </View>
             )}
@@ -227,7 +225,7 @@ export default function ActivitiesScreen() {
             {expandedStep === 3 && (
               <View style={styles.stepAccordionBody}>
                 <Text style={styles.stepSubtitle}>
-                  Take home your dry, framed masterpiece to display proudly in your living room or bedroom!
+                  Take home your finished canvas to display!
                 </Text>
               </View>
             )}
@@ -239,7 +237,7 @@ export default function ActivitiesScreen() {
           <View style={styles.galleryHeaderRow}>
             <View>
               <Text style={styles.sectionHeaderTitle}>EVENT GALLERY</Text>
-              <Text style={styles.gallerySubtitle}>Moments from our recent painting sessions</Text>
+              <Text style={styles.gallerySubtitle}>Recent moments at Little Polo</Text>
             </View>
             <View style={styles.photoCountPill}>
               <Text style={styles.photoCountText}>{GALLERY_PHOTOS.length} Total</Text>
@@ -278,9 +276,9 @@ export default function ActivitiesScreen() {
                 <Palette size={20} color={COLORS.primary} strokeWidth={2.2} />
               </View>
               <View style={styles.seeMoreTextGroup}>
-                <Text style={styles.seeMoreTitle}>See More Photos</Text>
+                <Text style={styles.seeMoreTitle}>See All Photos</Text>
                 <Text style={styles.seeMoreSub}>
-                  Browse all {GALLERY_PHOTOS.length} photos from Sunday sessions
+                  View all {GALLERY_PHOTOS.length} session pictures
                 </Text>
               </View>
             </View>
@@ -300,9 +298,9 @@ export default function ActivitiesScreen() {
             />
           </View>
 
-          <Text style={styles.ctaTitle}>Ready to Paint with Us?</Text>
+          <Text style={styles.ctaTitle}>Book Sunday Painting</Text>
           <Text style={styles.ctaSubtitle}>
-            Spaces are limited each Sunday to ensure every child gets personal guidance and materials.
+            Limited spots every Sunday. Reserve via WhatsApp.
           </Text>
 
           <Pressable
@@ -312,13 +310,13 @@ export default function ActivitiesScreen() {
             accessibilityLabel="Book an Appointment via WhatsApp"
           >
             <MessageCircle size={22} color={COLORS.white} strokeWidth={2.4} style={styles.waIcon} />
-            <Text style={styles.whatsappButtonText}>Book an Appointment (via WhatsApp)</Text>
+            <Text style={styles.whatsappButtonText}>Book via WhatsApp</Text>
           </Pressable>
 
           <View style={styles.ctaFooterRow}>
             <ShieldCheck size={14} color={COLORS.textSecondary} strokeWidth={2} />
             <Text style={styles.ctaFooterText}>
-              Direct booking · WhatsApp +254 704 769 219
+              WhatsApp +254 704 769 219
             </Text>
           </View>
         </View>

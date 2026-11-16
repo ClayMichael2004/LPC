@@ -34,7 +34,7 @@ export default function ProfileScreen() {
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) + 10 }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 110 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 130 }]}
       >
         {/* Header: Avatar, Hi Michael!, Edit personal info, Bell */}
         <View style={styles.headerRow}>
