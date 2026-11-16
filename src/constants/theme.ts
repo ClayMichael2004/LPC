@@ -34,6 +34,8 @@ export const COLORS = {
   serviceGreenIcon: '#075B35',
   servicePinkTint: '#FFD8D8',
   servicePinkIcon: '#691414',
+  servicePurpleTint: '#E5D9FF',
+  servicePurpleIcon: '#4C1D95',
   resourcePurpleTint: '#E5D9FF',
   resourcePurpleIcon: '#4C1D95',
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, Bike, Clock, ArrowRight } from 'lucide-react-native';
@@ -18,8 +18,16 @@ export default function OrderConfirmationScreen() {
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) }]}>
       <View style={styles.content}>
+        <View style={styles.brandLogoCircle}>
+          <Image
+            source={require('../../assets/images/little-polo-logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+        </View>
+
         <View style={styles.successIconCircle}>
-          <CheckCircle2 size={64} color="#059669" strokeWidth={2} />
+          <CheckCircle2 size={36} color="#059669" strokeWidth={2.5} />
         </View>
 
         <Text style={styles.title}>Order Confirmed!</Text>
@@ -76,16 +84,31 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    paddingTop: SPACING.xxxl,
+    paddingTop: SPACING.xl,
+  },
+  brandLogoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: SPACING.sm,
+    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   successIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   title: {
     fontFamily: FONTS.bold,

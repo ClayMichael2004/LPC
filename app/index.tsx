@@ -76,7 +76,7 @@ export default function LandingLocationScreen() {
           </View>
         </Animated.View>
 
-        {/* Top Floating Back Button (Fail-safe routing) */}
+        {/* Top Floating Bar with Back Button and Little Polo Logo */}
         <View style={[styles.topBar, { top: Math.max(insets.top, 14) + 10 }]}>
           <Pressable
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/home'))}
@@ -87,6 +87,14 @@ export default function LandingLocationScreen() {
           >
             <ChevronLeft size={24} color={COLORS.text} strokeWidth={2.5} />
           </Pressable>
+
+          <View style={styles.topLogoContainer}>
+            <Image
+              source={require('../assets/images/little-polo-logo.png')}
+              style={styles.topLogoImg}
+              resizeMode="contain"
+            />
+          </View>
         </View>
 
         {/* Floating GPS Crosshair Target Button */}
@@ -256,6 +264,10 @@ const styles = StyleSheet.create({
   topBar: {
     position: 'absolute',
     left: SPACING.lg,
+    right: SPACING.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     zIndex: 10,
   },
   backButton: {
@@ -266,6 +278,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOW.soft,
+  },
+  topLogoContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOW.soft,
+    overflow: 'hidden',
+  },
+  topLogoImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   gpsTargetButton: {
     position: 'absolute',

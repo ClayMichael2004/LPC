@@ -8,6 +8,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { User, Phone } from 'lucide-react-native';
@@ -52,9 +53,13 @@ export default function SignInSheetModal() {
           style={styles.keyboardContainer}
         >
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            {/* Red Circular User Avatar */}
+            {/* Little Polo Logo Avatar */}
             <View style={styles.avatarCircle}>
-              <User size={26} color={COLORS.primary} strokeWidth={2.4} />
+              <Image
+                source={require('../../assets/images/little-polo-logo.png')}
+                style={styles.avatarLogo}
+                resizeMode="contain"
+              />
             </View>
 
             {/* Title */}
@@ -133,13 +138,19 @@ const styles = StyleSheet.create({
     ...SHADOW.soft,
   },
   avatarCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: '#FCE7F3',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.lg,
+    backgroundColor: '#F3F4F6',
+    overflow: 'hidden',
+  },
+  avatarLogo: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
   },
   title: {
     fontFamily: FONTS.bold,

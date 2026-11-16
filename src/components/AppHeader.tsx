@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, Pencil, Bike } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SPACING } from '../constants/theme';
@@ -16,9 +16,17 @@ export default function AppHeader() {
   return (
     <View style={styles.container}>
       {/* Brand Logo */}
-      <Pressable onPress={() => router.replace('/(tabs)/home')} style={styles.brandBox}>
-        <Text style={styles.brandLPC}>LPC</Text>
-        <Text style={styles.brandSub}>CAFE</Text>
+      <Pressable
+        onPress={() => router.replace('/(tabs)/home')}
+        style={styles.brandBox}
+        accessibilityRole="button"
+        accessibilityLabel="Little Polo Cafe Home"
+      >
+        <Image
+          source={require('../../assets/images/little-polo-logo.png')}
+          style={styles.brandLogoImg}
+          resizeMode="contain"
+        />
       </Pressable>
 
       {/* Deliver To Location Pill */}
@@ -55,23 +63,14 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.borderLight,
   },
   brandBox: {
-    flexDirection: 'column',
     justifyContent: 'center',
-    paddingRight: SPACING.sm,
+    alignItems: 'center',
+    paddingRight: SPACING.xs,
   },
-  brandLPC: {
-    fontFamily: FONTS.bold,
-    fontSize: 22,
-    color: COLORS.primary,
-    letterSpacing: -0.5,
-    lineHeight: 24,
-  },
-  brandSub: {
-    fontFamily: FONTS.semibold,
-    fontSize: 8,
-    color: COLORS.textSecondary,
-    letterSpacing: 2,
-    lineHeight: 9,
+  brandLogoImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
   locationPill: {
     flex: 1,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, Pressable, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, Pressable, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -38,9 +38,17 @@ export default function ProfileScreen() {
       >
         {/* Header: Avatar, Hi Michael!, Edit personal info, Bell */}
         <View style={styles.headerRow}>
-          {/* Avatar Circle with initials */}
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{displayInitials}</Text>
+          {/* Avatar Circle with initials or Brand Logo */}
+          <View style={[styles.avatarCircle, !isAuthenticated && styles.avatarCircleGuest]}>
+            {isAuthenticated ? (
+              <Text style={styles.avatarText}>{displayInitials}</Text>
+            ) : (
+              <Image
+                source={require('../../assets/images/little-polo-logo.png')}
+                style={styles.avatarLogoImage}
+                resizeMode="cover"
+              />
+            )}
           </View>
 
           {/* User Name & Edit Info */}
@@ -168,6 +176,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
+    overflow: 'hidden',
+  },
+  avatarCircleGuest: {
+    backgroundColor: '#F3F4F6',
+  },
+  avatarLogoImage: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
   },
   avatarText: {
     fontFamily: FONTS.bold,

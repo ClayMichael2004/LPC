@@ -23,6 +23,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="activities"
+        options={{
+          title: 'Activities',
+        }}
+      />
+      <Tabs.Screen
         name="cart"
         options={{
           title: 'Cart',

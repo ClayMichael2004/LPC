@@ -1,7 +1,7 @@
 import React, { ComponentProps } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Tabs } from 'expo-router';
-import { House, Search, ShoppingBag, CircleUserRound } from 'lucide-react-native';
+import { House, Search, Palette, ShoppingBag, CircleUserRound } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT_SIZE, FONTS, SHADOW, SPACING } from '../constants/theme';
 import { useCart } from '../context/CartContext';
@@ -25,6 +25,7 @@ export default function BottomNav({ state, descriptors, navigation }: BottomNavP
           let label = route.name;
           if (route.name === 'home') label = 'Home';
           else if (route.name === 'menu') label = 'Menu';
+          else if (route.name === 'activities') label = 'Activities';
           else if (route.name === 'cart') label = 'Cart';
           else if (route.name === 'profile') label = isAuthenticated ? 'Profile' : 'Sign In';
 
@@ -62,6 +63,7 @@ export default function BottomNav({ state, descriptors, navigation }: BottomNavP
               <View style={styles.iconContainer}>
                 {route.name === 'home' && <House size={22} color={iconColor} strokeWidth={2} />}
                 {route.name === 'menu' && <Search size={22} color={iconColor} strokeWidth={2.3} />}
+                {route.name === 'activities' && <Palette size={22} color={iconColor} strokeWidth={2} />}
                 {route.name === 'cart' && (
                   <View style={styles.cartIconWrapper}>
                     <ShoppingBag size={22} color={iconColor} strokeWidth={2} />
