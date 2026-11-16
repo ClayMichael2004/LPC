@@ -35,7 +35,7 @@ export default function SignInSheetModal() {
     if (isCheckout) {
       router.push('/checkout/delivery');
     } else {
-      router.replace('/(tabs)/profile');
+      router.navigate('/(tabs)/profile');
     }
   };
 

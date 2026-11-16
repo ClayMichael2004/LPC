@@ -25,9 +25,27 @@ export default function MenuScreen() {
   const tabScrollRef = useRef<ScrollView>(null);
   const { totalCount } = useCart();
 
+  const handleTabSelect = (tabId: string, index: number) => {
+    setSelectedCategory(tabId);
+    tabScrollRef.current?.scrollTo({
+      x: Math.max(0, index * 95 - 40),
+      animated: true,
+    });
+  };
+
   useEffect(() => {
     if (params.categoryId) {
-      setSelectedCategory(params.categoryId);
+      const targetId = params.categoryId;
+      setSelectedCategory(targetId);
+      const tabIndex = MENU_TABS.findIndex((t) => t.id === targetId);
+      if (tabIndex > -1) {
+        setTimeout(() => {
+          tabScrollRef.current?.scrollTo({
+            x: Math.max(0, tabIndex * 95 - 40),
+            animated: true,
+          });
+        }, 120);
+      }
     }
   }, [params.categoryId]);
 
@@ -78,12 +96,12 @@ export default function MenuScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabBarScroll}
         >
-          {MENU_TABS.map((tab) => {
+          {MENU_TABS.map((tab, index) => {
             const isSelected = selectedCategory === tab.id;
             return (
               <Pressable
                 key={tab.id}
-                onPress={() => setSelectedCategory(tab.id)}
+                onPress={() => handleTabSelect(tab.id, index)}
                 style={styles.tabItem}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: isSelected }}

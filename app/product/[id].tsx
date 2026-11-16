@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: RADIUS.full,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: '#D1D5DB',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.white,
@@ -402,6 +402,6 @@ const styles = StyleSheet.create({
   addDisabledButtonText: {
     fontFamily: FONTS.medium,
     fontSize: 15,
-    color: '#9CA3AF',
+    color: '#6B7280',
   },
 });

@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.md,
   },
   scrollContent: {
-    paddingHorizontal: CARD_MARGIN,
-    gap: SPACING.sm,
+    paddingLeft: CARD_MARGIN,
+    paddingRight: CARD_MARGIN - SPACING.sm,
   },
   cardContainer: {
     width: CARD_WIDTH,
@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
     backgroundColor: '#1E1E1E',
+    marginRight: SPACING.sm,
   },
   bannerImage: {
     width: '100%',

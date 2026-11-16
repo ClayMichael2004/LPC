@@ -16,14 +16,18 @@ import { useAuth } from '../../src/context/AuthContext';
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, signOut, isAuthenticated } = useAuth();
+  const { user, signOut, isAuthenticated, showSignInModal } = useAuth();
 
-  const displayName = user?.name || 'Michael';
-  const displayInitials = user?.initials || 'MC';
+  const displayName = isAuthenticated && user ? user.name : 'Guest';
+  const displayInitials = isAuthenticated && user ? user.initials : 'LP';
 
   const handleSignOut = () => {
     signOut();
     router.replace('/(tabs)/home');
+  };
+
+  const handleSignIn = () => {
+    showSignInModal('nav');
   };
 
   return (
@@ -97,22 +101,39 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        {/* Card 2: Sign out */}
+        {/* Card 2: Sign out / Sign in */}
         <View style={styles.groupCard}>
-          <Pressable
-            onPress={handleSignOut}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-          >
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <LogOut size={20} color={COLORS.primary} strokeWidth={2.2} />
+          {isAuthenticated ? (
+            <Pressable
+              onPress={handleSignOut}
+              style={styles.menuRow}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+            >
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <LogOut size={20} color={COLORS.primary} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.rowTitle}>Sign out</Text>
               </View>
-              <Text style={styles.rowTitle}>Sign out</Text>
-            </View>
-            <ChevronRight size={20} color="#6B7280" strokeWidth={2} />
-          </Pressable>
+              <ChevronRight size={20} color="#6B7280" strokeWidth={2} />
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={handleSignIn}
+              style={styles.menuRow}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+            >
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <LogOut size={20} color={COLORS.primary} strokeWidth={2.2} style={{ transform: [{ rotate: '180deg' }] }} />
+                </View>
+                <Text style={styles.rowTitle}>Sign in to your account</Text>
+              </View>
+              <ChevronRight size={20} color="#6B7280" strokeWidth={2} />
+            </Pressable>
+          )}
         </View>
 
         {/* Footer Brand Copyright */}

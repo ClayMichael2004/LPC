@@ -56,28 +56,30 @@ export default function LandingLocationScreen() {
           resizeMode="cover"
         />
 
-        {/* GPS Radius Overlay Tint */}
-        <View style={styles.gpsCircle} />
-
-        {/* Center Pinned Marker */}
+        {/* Center Pinned Marker with GPS Radius */}
         <Animated.View style={[styles.centerPinContainer, { transform: [{ scale: pulseAnim }] }]}>
+          {/* GPS Radius Overlay Tint */}
+          <View style={styles.gpsCircle} />
+
           {/* Delivering Here Speech Bubble */}
           <View style={styles.deliveringBadge}>
             <Text style={styles.deliveringText}>Delivering here</Text>
             <View style={styles.deliveringArrow} />
           </View>
 
-          {/* Red Map Pin */}
+          {/* Red Map Pin with Center White Dot */}
           <View style={styles.pinWrapper}>
-            <MapPin size={42} color={COLORS.primary} fill={COLORS.primary} />
+            <MapPin size={46} color={COLORS.primary} fill={COLORS.primary} />
+            <View style={styles.pinCenterDot} />
+            <View style={styles.blueGpsDot} />
             <View style={styles.pinShadow} />
           </View>
         </Animated.View>
 
-        {/* Top Floating Back Button */}
+        {/* Top Floating Back Button (Fail-safe routing) */}
         <View style={[styles.topBar, { top: Math.max(insets.top, 14) + 10 }]}>
           <Pressable
-            onPress={() => router.replace('/(tabs)/home')}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/home'))}
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
@@ -175,24 +177,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  centerPinContainer: {
+    position: 'absolute',
+    top: '32%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   gpsCircle: {
     position: 'absolute',
-    top: '30%',
-    left: '20%',
     width: 220,
     height: 220,
     borderRadius: 110,
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
-  },
-  centerPinContainer: {
-    position: 'absolute',
-    top: '38%',
-    left: '50%',
-    marginLeft: -55,
-    marginTop: -60,
-    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(59, 130, 246, 0.28)',
+    top: 10,
   },
   deliveringBadge: {
     backgroundColor: COLORS.primary,
@@ -225,13 +226,32 @@ const styles = StyleSheet.create({
   },
   pinWrapper: {
     alignItems: 'center',
+    position: 'relative',
+  },
+  pinCenterDot: {
+    position: 'absolute',
+    top: 12,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.white,
+  },
+  blueGpsDot: {
+    position: 'absolute',
+    bottom: -4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2563EB',
+    borderWidth: 2,
+    borderColor: COLORS.white,
   },
   pinShadow: {
-    width: 14,
+    width: 16,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    marginTop: -2,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    marginTop: 2,
   },
   topBar: {
     position: 'absolute',

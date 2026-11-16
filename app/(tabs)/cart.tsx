@@ -30,7 +30,7 @@ export default function CartScreen() {
   };
 
   const handleBackToMenu = () => {
-    router.replace('/(tabs)/menu');
+    router.navigate('/(tabs)/menu');
   };
 
   return (
@@ -152,7 +152,7 @@ export default function CartScreen() {
 
       {/* Bottom Floating Checkout Action Button */}
       {items.length > 0 && (
-        <View style={[styles.bottomBarWrapper, { bottom: Math.max(insets.bottom, 8) + 68 }]}>
+        <View style={[styles.bottomBarWrapper, { bottom: Math.max(insets.bottom, 12) + 68 }]}>
           <Pressable
             onPress={handleCheckout}
             style={({ pressed }) => [

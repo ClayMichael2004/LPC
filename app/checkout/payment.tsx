@@ -512,13 +512,11 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 16,
     color: '#059669',
-    fontWeight: '900',
   },
   mpesaTextRed: {
     fontFamily: FONTS.bold,
     fontSize: 16,
     color: '#DC2626',
-    fontWeight: '900',
   },
   cardsLogoRow: {
     flexDirection: 'row',
@@ -529,7 +527,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 14,
     color: '#1A1F71',
-    fontWeight: '900',
     fontStyle: 'italic',
   },
   mastercardBadge: {

@@ -49,24 +49,26 @@ export default function MenuItemRow({ product }: MenuItemRowProps) {
   };
 
   return (
-    <Pressable
-      onPress={handleOpenDetail}
-      style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
-      accessibilityRole="button"
-      accessibilityLabel={`${product.name}, KSh ${product.price.toLocaleString()}`}
-    >
-      <View style={styles.imageBox}>
-        <Image source={product.image} style={styles.productImage} resizeMode="contain" />
-      </View>
+    <View style={styles.container}>
+      <Pressable
+        onPress={handleOpenDetail}
+        style={({ pressed }) => [styles.clickableContent, pressed && styles.clickablePressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`${product.name}, KSh ${product.price.toLocaleString()}`}
+      >
+        <View style={styles.imageBox}>
+          <Image source={product.image} style={styles.productImage} resizeMode="contain" />
+        </View>
 
-      <View style={styles.infoBox}>
-        <Text style={styles.name} numberOfLines={2}>
-          {product.name}
-        </Text>
-        <Text style={styles.price}>
-          KSh {product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </Text>
-      </View>
+        <View style={styles.infoBox}>
+          <Text style={styles.name} numberOfLines={2}>
+            {product.name}
+          </Text>
+          <Text style={styles.price}>
+            KSh {product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+        </View>
+      </Pressable>
 
       <View style={styles.actionBox}>
         {quantity > 0 ? (
@@ -75,7 +77,7 @@ export default function MenuItemRow({ product }: MenuItemRowProps) {
             <Pressable
               onPress={handleDecrement}
               style={styles.stepperBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
               accessibilityRole="button"
               accessibilityLabel="Decrease quantity"
             >
@@ -87,7 +89,7 @@ export default function MenuItemRow({ product }: MenuItemRowProps) {
             <Pressable
               onPress={handleIncrement}
               style={styles.stepperBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
               accessibilityRole="button"
               accessibilityLabel="Increase quantity"
             >
@@ -98,16 +100,16 @@ export default function MenuItemRow({ product }: MenuItemRowProps) {
           /* Red Circular Plus Button */
           <Pressable
             onPress={handlePlusPress}
-            style={styles.plusCircle}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={({ pressed }) => [styles.plusCircle, pressed && styles.plusCirclePressed]}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
             accessibilityLabel={`Add ${product.name} to cart`}
           >
-            <Plus size={20} color={COLORS.primary} strokeWidth={2} />
+            <Plus size={20} color={COLORS.primary} strokeWidth={2.2} />
           </Pressable>
         )}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -122,8 +124,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
     minHeight: 96,
   },
-  containerPressed: {
-    backgroundColor: '#FAFAFA',
+  clickableContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  clickablePressed: {
+    opacity: 0.85,
   },
   imageBox: {
     width: 90,
@@ -167,6 +175,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  plusCirclePressed: {
+    backgroundColor: '#FEE2E2',
+    transform: [{ scale: 0.94 }],
   },
   stepperPill: {
     flexDirection: 'row',

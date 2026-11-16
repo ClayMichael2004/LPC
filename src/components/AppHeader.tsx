@@ -63,7 +63,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 22,
     color: COLORS.primary,
-    fontWeight: '900',
     letterSpacing: -0.5,
     lineHeight: 24,
   },

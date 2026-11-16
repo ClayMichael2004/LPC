@@ -54,7 +54,7 @@ export default function BrowseCategoriesSlideshow() {
 
   const handleCategoryPress = (category: Category) => {
     // Navigate to menu tab with selected category
-    router.push({
+    router.navigate({
       pathname: '/(tabs)/menu',
       params: { categoryId: category.id },
     });
@@ -147,8 +147,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   scrollContent: {
-    paddingHorizontal: SPACING.lg,
-    gap: SPACING.lg,
+    paddingLeft: SPACING.lg,
+    paddingRight: 0,
   },
   gridPage: {
     width: SLIDE_WIDTH,
@@ -156,6 +156,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: SPACING.md,
+    marginRight: SPACING.lg,
   },
   categoryCard: {
     width: (SLIDE_WIDTH - SPACING.md) / 2,

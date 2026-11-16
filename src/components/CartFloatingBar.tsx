@@ -13,9 +13,9 @@ export default function CartFloatingBar() {
   if (totalCount === 0) return null;
 
   return (
-    <View style={[styles.wrapper, { bottom: Math.max(insets.bottom, 8) + 68 }]}>
+    <View style={[styles.wrapper, { bottom: Math.max(insets.bottom, 12) + 68 }]}>
       <Pressable
-        onPress={() => router.push('/(tabs)/cart')}
+        onPress={() => router.navigate('/(tabs)/cart')}
         style={styles.container}
         accessibilityRole="button"
         accessibilityLabel={`View cart, ${totalCount} items, total KSh ${subtotal.toLocaleString()}`}

@@ -23,13 +23,16 @@ export default function RootLayout() {
     Poppins_700Bold,
   });
 
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <LocationProvider>
         <CartProvider>
           <AuthProvider>
             <StatusBar style="dark" />
-            <SystemBarBlur />
             <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
               <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -44,6 +47,7 @@ export default function RootLayout() {
               <Stack.Screen name="checkout/payment" />
               <Stack.Screen name="checkout/confirmation" />
             </Stack>
+            <SystemBarBlur />
             <SignInSheetModal />
           </AuthProvider>
         </CartProvider>
