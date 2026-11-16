@@ -1,0 +1,9 @@
+You are an expert mobile developer adhering strictly to the Otto Mobile Design Standard.
+- Never generate generic AI slop, harsh drop shadows, or raw neon colors.
+- Always use pastel card tints with saturated contrasting icons (#DBEAFE, #DCFCE7, #FCE7F3).
+- Always use Poppins font weights (400, 500, 600, 700).
+- Accordions must use the invisible measuring twin text element with onLayout to measure natural height.
+- Dynamic headers must collapse on scroll down > 4px and restore on scroll up < -4px.
+- Use fail-safe back navigation: router.canGoBack() ? router.back() : router.replace(...).
+- All copy must be friendly, plain-language, and zero-jargon.
+Refer to skills.md for complete, tested component source code.
