@@ -26,18 +26,17 @@ export default function SignInSheetModal() {
   const isCheckout = modalSource === 'checkout';
 
   const handleSignIn = () => {
-    signIn({
-      name: 'Michael',
-      initials: 'MC',
-      phone: `+254 ${phoneNumber}`,
-      email: 'michael.ochieng@kisumu.ke',
-    });
-
+    hideSignInModal();
     if (isCheckout) {
-      router.push('/checkout/delivery');
+      router.push({ pathname: '/auth/login', params: { from: 'checkout' } });
     } else {
-      router.navigate('/(tabs)/profile');
+      router.push('/auth/login');
     }
+  };
+
+  const handleRegister = () => {
+    hideSignInModal();
+    router.push('/auth/register');
   };
 
   return (
@@ -101,6 +100,17 @@ export default function SignInSheetModal() {
               accessibilityLabel="Sign in"
             >
               <Text style={styles.primaryButtonText}>Sign in</Text>
+            </Pressable>
+
+            {/* Don't have an account? Register */}
+            <Pressable
+              onPress={handleRegister}
+              style={styles.registerLink}
+              hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
+            >
+              <Text style={styles.registerLinkText}>
+                Don’t have an account? <Text style={styles.registerLinkBold}>Register</Text>
+              </Text>
             </Pressable>
 
             {/* Not now */}
@@ -219,6 +229,20 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semibold,
     fontSize: FONT_SIZE.md,
     color: COLORS.white,
+  },
+  registerLink: {
+    paddingVertical: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  registerLinkText: {
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  registerLinkBold: {
+    fontFamily: FONTS.bold,
+    color: COLORS.primary,
+    textDecorationLine: 'underline',
   },
   notNowButton: {
     paddingVertical: SPACING.sm,

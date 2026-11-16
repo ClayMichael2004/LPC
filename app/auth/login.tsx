@@ -9,27 +9,53 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
+import FeedbackModal from '../../src/components/FeedbackModal';
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ from?: string }>();
   const { signIn } = useAuth();
 
   const [identifier, setIdentifier] = useState('michael.clay@kisumu.ke');
   const [password, setPassword] = useState('••••••••');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // In-app Google Auth / Notice Modal
+  const [modalState, setModalState] = useState<{
+    visible: boolean;
+    type: 'info' | 'success' | 'error' | 'confirm';
+    title: string;
+    message: string;
+    primaryText?: string;
+    onPrimaryPress: () => void;
+    secondaryText?: string;
+    onSecondaryPress?: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    onPrimaryPress: () => {},
+  });
 
   const handleSignIn = () => {
+    setErrorMessage(null);
     if (!identifier.trim()) {
-      Alert.alert('Required', 'Please enter your email or phone number.');
+      setErrorMessage('Please enter your email address or phone number.');
+      return;
+    }
+
+    if (!password.trim()) {
+      setErrorMessage('Please enter your password.');
       return;
     }
 
@@ -42,38 +68,44 @@ export default function LoginScreen() {
         email: identifier.includes('@') ? identifier : 'michaelclay2225@gmail.com',
       });
       setIsLoading(false);
-      // Navigates directly to Home page as requested
-      router.replace('/(tabs)/home');
+
+      // Route to checkout if referred from checkout, otherwise to home page
+      if (params.from === 'checkout') {
+        router.replace('/checkout/delivery');
+      } else {
+        router.replace('/(tabs)/home');
+      }
     }, 400);
   };
 
   const handleGoogleSignIn = () => {
-    Alert.alert(
-      'Google Sign-In',
-      'Google authentication placeholder. Connecting to backend soon!',
-      [
-        {
-          text: 'Continue as Michael',
-          onPress: () => {
-            signIn({
-              name: 'Michael Clay',
-              initials: 'MC',
-              phone: '+254 712 345 678',
-              email: 'michaelclay2225@gmail.com',
-            });
-            router.replace('/(tabs)/home');
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setModalState({
+      visible: true,
+      type: 'confirm',
+      title: 'Google Sign-In',
+      message: 'Authenticate with Google as Michael Clay (michaelclay2225@gmail.com)?',
+      primaryText: 'Continue',
+      secondaryText: 'Cancel',
+      onPrimaryPress: () => {
+        setModalState((s) => ({ ...s, visible: false }));
+        signIn({
+          name: 'Michael Clay',
+          initials: 'MC',
+          phone: '+254 712 345 678',
+          email: 'michaelclay2225@gmail.com',
+        });
+        if (params.from === 'checkout') {
+          router.replace('/checkout/delivery');
+        } else {
+          router.replace('/(tabs)/home');
+        }
+      },
+      onSecondaryPress: () => setModalState((s) => ({ ...s, visible: false })),
+    });
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      'Password Reset',
-      `A password recovery link has been sent to ${identifier || 'your email'}.`
-    );
+    router.push('/auth/forgot-password');
   };
 
   return (
@@ -103,7 +135,7 @@ export default function LoginScreen() {
           { paddingBottom: Math.max(insets.bottom, 20) + 24 },
         ]}
       >
-        {/* Brand Logo & Welcome */}
+        {/* Brand Logo & Title */}
         <View style={styles.brandHero}>
           <View style={styles.logoCircle}>
             <Image
@@ -112,22 +144,31 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>
-            Sign in to order your favorites and access special cafe perks.
-          </Text>
+          <Text style={styles.welcomeTitle}>Welcome Back</Text>
+          <Text style={styles.welcomeSubtitle}>Sign in to your Little Polo account</Text>
         </View>
 
-        {/* Input Fields */}
+        {/* Inline Error Message Banner (Modern, Zero OS Alerts) */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <AlertCircle size={18} color="#DC2626" strokeWidth={2.2} style={{ marginRight: 8 }} />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
+          </View>
+        )}
+
+        {/* Form Inputs */}
         <View style={styles.formContainer}>
-          {/* Email / Phone Field */}
+          {/* Email or Phone Input */}
           <Text style={styles.inputLabel}>Email or Phone Number</Text>
           <View style={styles.inputWrapper}>
             <Mail size={18} color="#9CA3AF" strokeWidth={2.2} style={styles.inputIcon} />
             <TextInput
               value={identifier}
-              onChangeText={setIdentifier}
-              placeholder="e.g. name@example.com or 0712..."
+              onChangeText={(t) => {
+                setIdentifier(t);
+                if (errorMessage) setErrorMessage(null);
+              }}
+              placeholder="e.g. name@example.com or 0712 345 678"
               placeholderTextColor="#9CA3AF"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -135,13 +176,16 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* Password Field */}
+          {/* Password Input */}
           <Text style={styles.inputLabel}>Password</Text>
           <View style={styles.inputWrapper}>
             <Lock size={18} color="#9CA3AF" strokeWidth={2.2} style={styles.inputIcon} />
             <TextInput
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(t) => {
+                setPassword(t);
+                if (errorMessage) setErrorMessage(null);
+              }}
               placeholder="Enter your password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
@@ -219,6 +263,18 @@ export default function LoginScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Modern In-App Modal Dialog */}
+      <FeedbackModal
+        visible={modalState.visible}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+        primaryText={modalState.primaryText}
+        onPrimaryPress={modalState.onPrimaryPress}
+        secondaryText={modalState.secondaryText}
+        onSecondaryPress={modalState.onSecondaryPress}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -239,70 +295,85 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
   },
   headerSpacer: {
     width: 38,
   },
   scrollContent: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.xs,
   },
   brandHero: {
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginVertical: SPACING.md,
   },
   logoCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: '#F3F4F6',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     overflow: 'hidden',
     ...SHADOW.soft,
   },
   logoImage: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 74,
+    height: 74,
   },
-  title: {
+  welcomeTitle: {
     fontFamily: FONTS.bold,
-    fontSize: 24,
+    fontSize: 22,
     color: COLORS.heading,
+    letterSpacing: -0.2,
     marginBottom: 4,
   },
-  subtitle: {
+  welcomeSubtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 19,
-    paddingHorizontal: SPACING.md,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
   },
   formContainer: {
-    gap: 6,
+    marginTop: SPACING.xs,
   },
   inputLabel: {
-    fontFamily: FONTS.semibold,
+    fontFamily: FONTS.medium,
     fontSize: 13,
     color: COLORS.heading,
+    marginBottom: 6,
     marginTop: SPACING.sm,
-    marginBottom: 4,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
+    height: 52,
+    borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    borderRadius: 14,
+    borderRadius: 12,
     paddingHorizontal: SPACING.md,
-    height: 50,
+    backgroundColor: '#F9FAFB',
   },
   inputIcon: {
     marginRight: 10,
@@ -310,44 +381,40 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: COLORS.text,
+    fontSize: 15,
+    color: COLORS.heading,
   },
   eyeBtn: {
     padding: 6,
   },
   forgotBtn: {
     alignSelf: 'flex-end',
-    marginTop: 6,
+    marginTop: 8,
     marginBottom: SPACING.md,
   },
   forgotText: {
     fontFamily: FONTS.semibold,
-    fontSize: 12,
-    color: COLORS.primaryDark,
+    fontSize: 13,
+    color: COLORS.primary,
   },
   loginButton: {
     height: 52,
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#111827',
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: SPACING.xs,
     ...SHADOW.soft,
-    marginBottom: SPACING.lg,
   },
   loginButtonText: {
     fontFamily: FONTS.bold,
     fontSize: 15,
     color: COLORS.white,
   },
-  buttonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
-  },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginVertical: SPACING.lg,
   },
   dividerLine: {
     flex: 1,
@@ -364,47 +431,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
+    height: 50,
     backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
     borderRadius: RADIUS.full,
-    ...SHADOW.soft,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    ...SHADOW.subtle,
   },
   googleIconCircle: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#4285F4',
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   googleGText: {
-    color: COLORS.white,
     fontFamily: FONTS.bold,
     fontSize: 14,
-    lineHeight: 16,
+    color: '#4285F4',
   },
   googleButtonText: {
     fontFamily: FONTS.semibold,
     fontSize: 14,
-    color: COLORS.heading,
+    color: '#374151',
+  },
+  buttonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: SPACING.xl,
+    paddingBottom: SPACING.md,
   },
   footerText: {
     fontFamily: FONTS.regular,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.textSecondary,
   },
   registerLink: {
     fontFamily: FONTS.bold,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.primary,
+    textDecorationLine: 'underline',
   },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,41 +6,34 @@ import {
   ScrollView,
   Pressable,
   Image,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, CheckCircle2 } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
+import FeedbackModal from '../../src/components/FeedbackModal';
 
 export default function PersonalInfoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const displayName = user?.name || 'Michael Clay';
   const displayInitials = user?.initials || 'MC';
   const displayEmail = user?.email || 'michaelclay2225@gmail.com';
   const displayPhone = user?.phone || '—';
-  const displayDob = (user as any)?.dob || '—';
+  const displayDob = user?.dob || '—';
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            signOut();
-            router.replace('/(tabs)/home');
-          },
-        },
-      ]
-    );
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    setShowDeleteModal(false);
+    signOut();
+    router.replace('/(tabs)/home');
   };
 
   return (
@@ -147,6 +140,19 @@ export default function PersonalInfoScreen() {
           <Text style={styles.editButtonText}>Edit personal information</Text>
         </Pressable>
       </View>
+
+      {/* Modern In-App Delete Confirmation Modal */}
+      <FeedbackModal
+        visible={showDeleteModal}
+        type="confirm"
+        destructive
+        title="Delete Account"
+        message="Are you sure you want to delete your account? This action cannot be undone."
+        primaryText="Delete"
+        onPrimaryPress={confirmDeleteAccount}
+        secondaryText="Cancel"
+        onSecondaryPress={() => setShowDeleteModal(false)}
+      />
     </View>
   );
 }

@@ -9,13 +9,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, User, Mail, Phone, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, User, Mail, Phone, Lock, Eye, EyeOff, AlertCircle, Check } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
+import FeedbackModal from '../../src/components/FeedbackModal';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -31,20 +31,43 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Live real-time password comparison
+  const isPasswordMismatch = confirmPassword.length > 0 && confirmPassword !== password;
+  const isPasswordMatch = confirmPassword.length > 0 && password.length > 0 && confirmPassword === password;
+
+  const [modalState, setModalState] = useState<{
+    visible: boolean;
+    type: 'info' | 'success' | 'error' | 'confirm';
+    title: string;
+    message: string;
+    primaryText?: string;
+    onPrimaryPress: () => void;
+    secondaryText?: string;
+    onSecondaryPress?: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    onPrimaryPress: () => {},
+  });
 
   const handleRegister = () => {
+    setErrorMessage(null);
     if (!firstName.trim() || (!email.trim() && !phone.trim())) {
-      Alert.alert('Required', 'Please provide your name and an email or phone number.');
+      setErrorMessage('Please provide your name and an email or phone number.');
       return;
     }
 
     if (!password) {
-      Alert.alert('Required', 'Please create a password.');
+      setErrorMessage('Please choose a password.');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Password Mismatch', 'The passwords you entered do not match. Please verify and try again.');
+      setErrorMessage('The passwords you entered do not match. Please verify and try again.');
       return;
     }
 
@@ -64,25 +87,25 @@ export default function RegisterScreen() {
   };
 
   const handleGoogleSignIn = () => {
-    Alert.alert(
-      'Google Sign-Up',
-      'Google authentication placeholder. Connecting to backend soon!',
-      [
-        {
-          text: 'Continue with Google',
-          onPress: () => {
-            signIn({
-              name: 'Michael Clay',
-              initials: 'MC',
-              phone: '+254 712 345 678',
-              email: 'michaelclay2225@gmail.com',
-            });
-            router.replace('/(tabs)/home');
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setModalState({
+      visible: true,
+      type: 'confirm',
+      title: 'Google Sign-Up',
+      message: 'Create and authenticate your Little Polo account with Google?',
+      primaryText: 'Continue',
+      secondaryText: 'Cancel',
+      onPrimaryPress: () => {
+        setModalState((s) => ({ ...s, visible: false }));
+        signIn({
+          name: 'Michael Clay',
+          initials: 'MC',
+          phone: '+254 712 345 678',
+          email: 'michaelclay2225@gmail.com',
+        });
+        router.replace('/(tabs)/home');
+      },
+      onSecondaryPress: () => setModalState((s) => ({ ...s, visible: false })),
+    });
   };
 
   return (
@@ -126,6 +149,14 @@ export default function RegisterScreen() {
             Join Little Polo Cafe for easy mobile ordering and activity bookings.
           </Text>
         </View>
+
+        {/* Inline Error Banner */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <AlertCircle size={18} color="#DC2626" strokeWidth={2.2} style={{ marginRight: 8 }} />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
+          </View>
+        )}
 
         {/* Input Fields */}
         <View style={styles.formContainer}>
@@ -213,13 +244,22 @@ export default function RegisterScreen() {
             </Pressable>
           </View>
 
-          {/* Confirm Password Field */}
+          {/* Confirm Password Field (Real-time matching comparison) */}
           <Text style={styles.inputLabel}>Confirm Password*</Text>
-          <View style={styles.inputWrapper}>
+          <View
+            style={[
+              styles.inputWrapper,
+              isPasswordMismatch && styles.inputWrapperMismatch,
+              isPasswordMatch && styles.inputWrapperMatch,
+            ]}
+          >
             <Lock size={16} color="#9CA3AF" style={styles.inputIcon} />
             <TextInput
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(t) => {
+                setConfirmPassword(t);
+                if (errorMessage) setErrorMessage(null);
+              }}
               placeholder="Re-enter your password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showConfirmPassword}
@@ -237,6 +277,21 @@ export default function RegisterScreen() {
               )}
             </Pressable>
           </View>
+
+          {/* Real-Time Live Validation Feedback */}
+          {isPasswordMismatch && (
+            <View style={styles.passwordHintRow}>
+              <AlertCircle size={14} color="#DC2626" strokeWidth={2.2} style={{ marginRight: 6 }} />
+              <Text style={styles.mismatchHintText}>Passwords do not match yet</Text>
+            </View>
+          )}
+
+          {isPasswordMatch && (
+            <View style={styles.passwordHintRow}>
+              <Check size={14} color="#10B981" strokeWidth={2.4} style={{ marginRight: 6 }} />
+              <Text style={styles.matchHintText}>Passwords match</Text>
+            </View>
+          )}
 
           {/* Primary Create Account Button */}
           <Pressable
@@ -288,6 +343,18 @@ export default function RegisterScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Modern In-App Modal Dialog */}
+      <FeedbackModal
+        visible={modalState.visible}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+        primaryText={modalState.primaryText}
+        onPrimaryPress={modalState.onPrimaryPress}
+        secondaryText={modalState.secondaryText}
+        onSecondaryPress={modalState.onSecondaryPress}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -322,6 +389,24 @@ const styles = StyleSheet.create({
   brandHero: {
     alignItems: 'center',
     marginBottom: SPACING.lg,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
   },
   logoCircle: {
     width: 70,
@@ -379,6 +464,36 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: SPACING.md,
     height: 48,
+  },
+  inputWrapperMismatch: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FFF5F5',
+  },
+  inputWrapperMatch: {
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+  },
+  passwordFeedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
+  passwordHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+    paddingHorizontal: 2,
+  },
+  mismatchHintText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#DC2626',
+  },
+  matchHintText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#059669',
   },
   inputIcon: {
     marginRight: 8,

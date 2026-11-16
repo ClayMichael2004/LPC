@@ -8,7 +8,6 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Modal,
   Image,
   Dimensions,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Calendar as CalendarIcon, X, ChevronRight } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
+import FeedbackModal from '../../src/components/FeedbackModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TUMBLER_ITEM_HEIGHT = 44;
@@ -124,9 +124,30 @@ export default function EditPersonalDetailsScreen() {
     }
   }, [isCalendarModalVisible]);
 
+  // Modern Feedback Modal
+  const [feedbackModalState, setFeedbackModalState] = useState<{
+    visible: boolean;
+    type: 'info' | 'success' | 'error' | 'confirm';
+    title: string;
+    message: string;
+    onPrimaryPress: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    onPrimaryPress: () => {},
+  });
+
   const handleSaveDetails = () => {
     if (!firstName.trim()) {
-      Alert.alert('Required', 'Please enter your first name.');
+      setFeedbackModalState({
+        visible: true,
+        type: 'error',
+        title: 'First Name Required',
+        message: 'Please enter your first name before saving.',
+        onPrimaryPress: () => setFeedbackModalState((s) => ({ ...s, visible: false })),
+      });
       return;
     }
 
@@ -141,18 +162,20 @@ export default function EditPersonalDetailsScreen() {
       dob: dob || '15/06/1998',
     });
 
-    Alert.alert('Details Saved', 'Your personal details have been updated successfully.', [
-      {
-        text: 'OK',
-        onPress: () => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/profile/personal-info');
-          }
-        },
+    setFeedbackModalState({
+      visible: true,
+      type: 'success',
+      title: 'Details Saved',
+      message: 'Your personal details have been updated successfully.',
+      onPrimaryPress: () => {
+        setFeedbackModalState((s) => ({ ...s, visible: false }));
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/profile/personal-info');
+        }
       },
-    ]);
+    });
   };
 
   // Toggle Email editing
@@ -683,6 +706,14 @@ export default function EditPersonalDetailsScreen() {
           </View>
         </View>
       </Modal>
+      {/* Modern In-App Feedback Modal */}
+      <FeedbackModal
+        visible={feedbackModalState.visible}
+        type={feedbackModalState.type}
+        title={feedbackModalState.title}
+        message={feedbackModalState.message}
+        onPrimaryPress={feedbackModalState.onPrimaryPress}
+      />
     </KeyboardAvoidingView>
   );
 }

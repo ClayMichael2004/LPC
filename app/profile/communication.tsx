@@ -6,12 +6,12 @@ import {
   ScrollView,
   Pressable,
   Switch,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, MessageSquare, Mail, Bell, Sparkles } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
+import FeedbackModal from '../../src/components/FeedbackModal';
 
 export default function CommunicationPreferencesScreen() {
   const router = useRouter();
@@ -21,20 +21,19 @@ export default function CommunicationPreferencesScreen() {
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [promoEnabled, setPromoEnabled] = useState(true);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSave = () => {
-    Alert.alert('Preferences Saved', 'Your communication preferences have been updated.', [
-      {
-        text: 'OK',
-        onPress: () => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)/profile');
-          }
-        },
-      },
-    ]);
+    setShowSuccessModal(true);
+  };
+
+  const handleModalClose = () => {
+    setShowSuccessModal(false);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/profile');
+    }
   };
 
   return (
@@ -166,6 +165,16 @@ export default function CommunicationPreferencesScreen() {
           <Text style={styles.saveButtonText}>Save preferences</Text>
         </Pressable>
       </View>
+
+      {/* Modern In-App Feedback Modal */}
+      <FeedbackModal
+        visible={showSuccessModal}
+        type="success"
+        title="Preferences Saved"
+        message="Your communication preferences have been updated."
+        primaryText="Done"
+        onPrimaryPress={handleModalClose}
+      />
     </View>
   );
 }
