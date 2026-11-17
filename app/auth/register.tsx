@@ -16,6 +16,7 @@ import { ChevronLeft, User, Mail, Phone, Lock, Eye, EyeOff, AlertCircle, Check }
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import FeedbackModal from '../../src/components/FeedbackModal';
+import { authApi, ApiError } from '../../src/services/api';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -93,37 +94,19 @@ export default function RegisterScreen() {
     const targetPhone = phone.trim();
 
     try {
-      // Call backend registration endpoint to save customer and send welcome email
-      const backendUrl = Platform.select({
-        android: 'http://10.0.2.2:8080/api/v1/auth/register',
-        default: 'http://localhost:8080/api/v1/auth/register',
+      await authApi.register({
+        name: fullName,
+        email: targetEmail,
+        phone: targetPhone,
+        password,
       });
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-      const res = await fetch(backendUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: fullName,
-          email: targetEmail,
-          phone: targetPhone,
-          password,
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      const data = await res.json();
-      if (!res.ok) {
+    } catch (err) {
+      if (err instanceof ApiError) {
         setIsLoading(false);
-        setErrorMessage(data?.error || data?.message || 'Registration could not be completed. Please try again.');
+        setErrorMessage(err.message);
         return;
       }
-    } catch (err) {
-      // In offline or local demo fallback, log and gracefully proceed with confirmation
-      console.log('[Registration] Offline or local fallback:', err);
+      // In offline or local demo fallback, proceed with confirmation
     }
 
     setIsLoading(false);

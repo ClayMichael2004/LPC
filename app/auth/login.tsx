@@ -16,6 +16,7 @@ import { ChevronLeft, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react-
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import FeedbackModal from '../../src/components/FeedbackModal';
+import { authApi, ApiError } from '../../src/services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function LoginScreen() {
     onPrimaryPress: () => {},
   });
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     setErrorMessage(null);
     if (!identifier.trim()) {
       setErrorMessage('Please enter your email address or phone number.');
@@ -60,22 +61,32 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const authResp = await authApi.login(identifier.trim(), password);
+      signIn(authResp.user, authResp.token);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setIsLoading(false);
+        setErrorMessage(err.message);
+        return;
+      }
+      // Offline / local fallback
       signIn({
         name: 'Michael Clay',
         initials: 'MC',
         phone: '+254 712 345 678',
-        email: identifier.includes('@') ? identifier : 'michaelclay2225@gmail.com',
+        email: identifier.includes('@') ? identifier.trim() : 'michaelclay2225@gmail.com',
       });
-      setIsLoading(false);
+    }
 
-      // Route to checkout if referred from checkout, otherwise to home page
-      if (params.from === 'checkout') {
-        router.replace('/checkout/delivery');
-      } else {
-        router.replace('/(tabs)/home');
-      }
-    }, 400);
+    setIsLoading(false);
+
+    // Route to checkout if referred from checkout, otherwise to home page
+    if (params.from === 'checkout') {
+      router.replace('/checkout/delivery');
+    } else {
+      router.replace('/(tabs)/home');
+    }
   };
 
   const handleGoogleSignIn = () => {

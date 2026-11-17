@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
-import { CartItem, Product, ProductOption } from '../types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { CartItem, Order, Product, ProductOption } from '../types';
+import { ordersApi } from '../services/api';
 
 interface CartContextType {
   items: CartItem[];
@@ -14,12 +15,57 @@ interface CartContextType {
   vat: number;
   total: number;
   totalCount: number;
+  lastPlacedOrder: Order | null;
+  setLastPlacedOrder: (order: Order | null) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [serverSummary, setServerSummary] = useState<{
+    subtotal: number;
+    deliveryFee: number;
+    vat: number;
+    total: number;
+  } | null>(null);
+  const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
+
+  // Sync authoritative server-side pricing whenever cart items change
+  useEffect(() => {
+    if (items.length === 0) {
+      setServerSummary(null);
+      return;
+    }
+
+    let cancelled = false;
+    const payloadItems = items.map((item) => ({
+      productId: item.product.id,
+      optionId: item.selectedOption?.id,
+      quantity: item.quantity,
+    }));
+
+    ordersApi
+      .calculatePrice(payloadItems, 'delivery')
+      .then((summary) => {
+        if (!cancelled && summary) {
+          setServerSummary({
+            subtotal: summary.subtotal,
+            deliveryFee: summary.deliveryFee,
+            vat: summary.vat,
+            total: summary.total,
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback to local calculation if offline
+        if (!cancelled) setServerSummary(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
 
   const addToCart = (product: Product, quantity: number, selectedOption?: ProductOption) => {
     if (quantity <= 0) return;
@@ -93,6 +139,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setItems([]);
+    setServerSummary(null);
   };
 
   const getItemQuantity = (productId: string) => {
@@ -102,10 +149,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFee = subtotal > 0 ? 150 : 0;
-  const vat = subtotal > 0 ? Number((subtotal * 0.16).toFixed(2)) : 0;
-  const total = subtotal > 0 ? subtotal + deliveryFee : 0;
+  const localSubtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
+  const localDeliveryFee = localSubtotal > 0 ? 150 : 0;
+  const localVat = localSubtotal > 0 ? Number((localSubtotal * 0.16).toFixed(2)) : 0;
+  const localTotal = localSubtotal > 0 ? localSubtotal + localDeliveryFee : 0;
+
+  const subtotal = serverSummary ? serverSummary.subtotal : localSubtotal;
+  const deliveryFee = serverSummary ? serverSummary.deliveryFee : localDeliveryFee;
+  const vat = serverSummary ? serverSummary.vat : localVat;
+  const total = serverSummary ? serverSummary.total : localTotal;
 
   return (
     <CartContext.Provider
@@ -122,6 +174,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         vat,
         total,
         totalCount,
+        lastPlacedOrder,
+        setLastPlacedOrder,
       }}
     >
       {children}

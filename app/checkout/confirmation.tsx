@@ -1,15 +1,35 @@
 import React from 'react';
 import { StyleSheet, View, Text, Pressable, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, Bike, Clock, ArrowRight } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useLocation } from '../../src/context/LocationContext';
+import { useCart } from '../../src/context/CartContext';
+import { useOrderTracking } from '../../src/hooks/useOrderTracking';
 
 export default function OrderConfirmationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ orderId?: string }>();
   const { locationName } = useLocation();
+  const { lastPlacedOrder } = useCart();
+
+  const resolvedOrderId = params.orderId || lastPlacedOrder?.id || 'LPC-8924';
+  const { tracking } = useOrderTracking(resolvedOrderId);
+
+  const etaMinutes =
+    tracking?.estimatedDeliveryMinutes || lastPlacedOrder?.estimatedDeliveryMinutes;
+  const courierName =
+    tracking?.courier?.name ||
+    lastPlacedOrder?.courier?.name ||
+    'Kisumu Express Delivery Team';
+  const statusHeadline =
+    tracking?.status === 'DELIVERED'
+      ? 'Order Delivered!'
+      : tracking?.status === 'OUT_FOR_DELIVERY'
+      ? 'Out for Delivery'
+      : 'Courier Dispatched';
 
   const handleReturnHome = () => {
     router.replace('/(tabs)/home');
@@ -31,7 +51,7 @@ export default function OrderConfirmationScreen() {
         </View>
 
         <Text style={styles.title}>Order Confirmed!</Text>
-        <Text style={styles.orderId}>Order #LPC-8924</Text>
+        <Text style={styles.orderId}>Order #{resolvedOrderId}</Text>
 
         <Text style={styles.description}>
           Your order is being freshly prepared at Little Polo Cafe.
@@ -43,7 +63,9 @@ export default function OrderConfirmationScreen() {
             <Clock size={20} color={COLORS.primary} strokeWidth={2.2} />
             <Text style={styles.etaTitle}>Estimated Delivery</Text>
           </View>
-          <Text style={styles.etaTime}>20 – 30 Minutes</Text>
+          <Text style={styles.etaTime}>
+            {etaMinutes ? `~${etaMinutes} Minutes` : '20 – 30 Minutes'}
+          </Text>
           <Text style={styles.etaAddress}>Delivering to {locationName}, East Kisumu</Text>
         </View>
 
@@ -53,8 +75,8 @@ export default function OrderConfirmationScreen() {
             <Bike size={24} color={COLORS.heading} strokeWidth={2.2} />
           </View>
           <View style={styles.courierInfo}>
-            <Text style={styles.courierStatus}>Courier Dispatched</Text>
-            <Text style={styles.courierSub}>Kisumu Express Delivery Team</Text>
+            <Text style={styles.courierStatus}>{statusHeadline}</Text>
+            <Text style={styles.courierSub}>{courierName}</Text>
           </View>
         </View>
       </View>

@@ -149,6 +149,9 @@ func (r *MemoryProductRepo) seedData() {
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "meal-drink", Title: "Choose Your Meal Drink", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
+					{ID: "coke", Name: "Coke 500ml", ExtraPrice: 0.00},
+					{ID: "fanta", Name: "Fanta Orange 500ml", ExtraPrice: 0.00},
+					{ID: "sprite", Name: "Sprite 500ml", ExtraPrice: 0.00},
 					{ID: "coke-500", Name: "Coke 500ml", ExtraPrice: 0.00},
 					{ID: "fanta-500", Name: "Fanta Orange 500ml", ExtraPrice: 0.00},
 					{ID: "sprite-500", Name: "Sprite 500ml", ExtraPrice: 0.00},
@@ -166,9 +169,91 @@ func (r *MemoryProductRepo) seedData() {
 			Image: "burger-crunch.png", HasOptions: false, IsAvailable: true, StockQuantity: 45, CreatedAt: now, UpdatedAt: now,
 		},
 		{
+			ID: "streetwise-3-crunch", Name: "Streetwise 3 Crunch", Category: "for-me", Price: 650.00,
+			Description: "3 succulent crispy chicken pieces with salted fries.",
+			Image: "burger-crunch.png", HasOptions: false, IsAvailable: true, StockQuantity: 30, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "nyama-nyama-burger", Name: "Nyama Nyama Burger", Category: "burgers", Price: 900.00,
+			Description: "All-meat signature burger loaded with double bacon, caramelized onions, and cheddar melt.",
+			Image: "burger-boss.png", HasOptions: false, IsAvailable: true, StockQuantity: 25, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "2l-soda", Name: "2L Soda", Category: "drinks", Price: 350.00,
+			Description: "Chilled 2 Liter refreshing beverage to share.",
+			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 100, CreatedAt: now, UpdatedAt: now,
+			OptionsGroup: &domain.ProductOptionGroup{
+				ID: "soda-flavor", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
+				Options: []domain.ProductOption{
+					{ID: "coke", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-orange", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite", Name: "Sprite", ExtraPrice: 0.00},
+					{ID: "coke-2l", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-2l", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite-2l", Name: "Sprite", ExtraPrice: 0.00},
+				},
+			},
+		},
+		{
+			ID: "1l-soda", Name: "1l Soda", Category: "drinks", Price: 250.00,
+			Description: "Chilled 1 Liter beverage.",
+			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 100, CreatedAt: now, UpdatedAt: now,
+			OptionsGroup: &domain.ProductOptionGroup{
+				ID: "soda-flavor-1l", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
+				Options: []domain.ProductOption{
+					{ID: "coke", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-orange", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite", Name: "Sprite", ExtraPrice: 0.00},
+					{ID: "coke-1l", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-1l", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite-1l", Name: "Sprite", ExtraPrice: 0.00},
+				},
+			},
+		},
+		{
+			ID: "500ml-soda", Name: "500ml Soda", Category: "drinks", Price: 150.00,
+			Description: "Chilled 500ml single serve bottle.",
+			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 120, CreatedAt: now, UpdatedAt: now,
+			OptionsGroup: &domain.ProductOptionGroup{
+				ID: "soda-flavor-500ml", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
+				Options: []domain.ProductOption{
+					{ID: "coke", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-orange", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite", Name: "Sprite", ExtraPrice: 0.00},
+					{ID: "coke-500ml", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-500ml", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite-500ml", Name: "Sprite", ExtraPrice: 0.00},
+				},
+			},
+		},
+		{
+			ID: "350ml-soda", Name: "350ml Soda", Category: "drinks", Price: 100.00,
+			Description: "Pocket size refreshing cold soda.",
+			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 150, CreatedAt: now, UpdatedAt: now,
+			OptionsGroup: &domain.ProductOptionGroup{
+				ID: "soda-flavor-350ml", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
+				Options: []domain.ProductOption{
+					{ID: "coke", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-orange", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite", Name: "Sprite", ExtraPrice: 0.00},
+					{ID: "coke-350ml", Name: "Coke", ExtraPrice: 0.00},
+					{ID: "fanta-350ml", Name: "Fanta Orange", ExtraPrice: 0.00},
+					{ID: "sprite-350ml", Name: "Sprite", ExtraPrice: 0.00},
+				},
+			},
+		},
+		{
 			ID: "cold-brew-vanilla", Name: "Cold Brew Vanilla Sweet Cream", Category: "artisan-coffee", Price: 450.00,
 			Description: "18-hour slow-steeped Kenyan single origin coffee finished with handcrafted vanilla sweet cream.",
-			Image: "cold-brew.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 35, CreatedAt: now, UpdatedAt: now,
+			Image: "cold-brew.jpg", HasOptions: true, IsAvailable: true, StockQuantity: 35, CreatedAt: now, UpdatedAt: now,
+			OptionsGroup: &domain.ProductOptionGroup{
+				ID: "milk-choice", Title: "Choose Your Milk Preference", Required: true, Min: 1, Max: 1,
+				Options: []domain.ProductOption{
+					{ID: "whole-milk", Name: "Fresh Whole Milk", ExtraPrice: 0.00},
+					{ID: "oat-milk", Name: "Oat Milk", ExtraPrice: 0.00},
+					{ID: "almond-milk", Name: "Almond Milk", ExtraPrice: 0.00},
+				},
+			},
 		},
 		{
 			ID: "spanish-latte", Name: "Iced Spanish Latte", Category: "artisan-coffee", Price: 420.00,
@@ -184,6 +269,16 @@ func (r *MemoryProductRepo) seedData() {
 			ID: "flaky-croissant", Name: "Butter Flaky Croissant", Category: "pastries", Price: 280.00,
 			Description: "Golden laminated pastry freshly baked every morning.",
 			Image: "croissant.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 30, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "polo-solo-box", Name: "Polo Solo Feast Box", Category: "box-meals", Price: 1100.00,
+			Description: "Big Boss Burger, 2 crispy wings, large fries, and 500ml soda.",
+			Image: "cat-grid-4.png", HasOptions: false, IsAvailable: true, StockQuantity: 25, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "lake-sharing-box", Name: "Lake Breeze Sharing Box", Category: "for-us", Price: 2400.00,
+			Description: "4 Burgers, 8 crispy tenders, family fries, and 2L soda.",
+			Image: "cat-grid-3.png", HasOptions: false, IsAvailable: true, StockQuantity: 15, CreatedAt: now, UpdatedAt: now,
 		},
 	}
 

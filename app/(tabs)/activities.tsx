@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -30,6 +30,7 @@ import {
 } from 'lucide-react-native';
 import AppHeader from '../../src/components/AppHeader';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
+import { activitiesApi } from '../../src/services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
@@ -55,23 +56,41 @@ export default function ActivitiesScreen() {
   const insets = useSafeAreaInsets();
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [expandedStep, setExpandedStep] = useState<number | null>(1);
+  const [whatsappTarget, setWhatsappTarget] = useState(WHATSAPP_NUMBER);
+
+  useEffect(() => {
+    let mounted = true;
+    activitiesApi
+      .getActivities()
+      .then((list) => {
+        if (mounted && Array.isArray(list) && list.length > 0 && list[0].whatsappNumber) {
+          setWhatsappTarget(list[0].whatsappNumber);
+        }
+      })
+      .catch(() => {
+        // Keep local default
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const toggleStep = (step: number) => {
     setExpandedStep((prev) => (prev === step ? null : step));
   };
 
   const handleBookViaWhatsApp = async () => {
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
+    const url = `https://wa.me/${whatsappTarget}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
         await Linking.openURL(url);
       } else {
-        await Linking.openURL(`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(WHATSAPP_MESSAGE)}`);
+        await Linking.openURL(`https://api.whatsapp.com/send?phone=${whatsappTarget}&text=${encodeURIComponent(WHATSAPP_MESSAGE)}`);
       }
     } catch {
       // Fallback direct web WhatsApp link
-      Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`);
+      Linking.openURL(`https://wa.me/${whatsappTarget}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`);
     }
   };
 

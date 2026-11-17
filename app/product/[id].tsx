@@ -13,6 +13,7 @@ import { X, Minus, Plus } from 'lucide-react-native';
 import { PRODUCTS } from '../../src/constants/menuData';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useCart } from '../../src/context/CartContext';
+import { useCategory } from '../../src/context/CategoryContext';
 import { ProductOption } from '../../src/types';
 
 export default function ProductDetailScreen() {
@@ -20,8 +21,10 @@ export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string }>();
   const { addToCart, getItemQuantity } = useCart();
+  const { products } = useCategory();
 
-  const product = PRODUCTS.find((p) => p.id === params.id) || PRODUCTS[0];
+  const sourceProducts = products.length > 0 ? products : PRODUCTS;
+  const product = sourceProducts.find((p) => p.id === params.id) || PRODUCTS.find((p) => p.id === params.id) || PRODUCTS[0];
 
   const [quantity, setQuantity] = useState(1);
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);

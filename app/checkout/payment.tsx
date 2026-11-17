@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,15 +14,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronUp, ChevronDown, Smartphone, CreditCard } from 'lucide-react-native';
 import ScreenHeader from '../../src/components/ScreenHeader';
 import Accordion from '../../src/components/Accordion';
+import FeedbackModal from '../../src/components/FeedbackModal';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useCart } from '../../src/context/CartContext';
 import { useLocation } from '../../src/context/LocationContext';
+import { ordersApi, generateIdempotencyKey, ApiError } from '../../src/services/api';
 
 export default function CheckoutPaymentScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { items, subtotal, deliveryFee, vat, total, clearCart } = useCart();
-  const { deliveryInfo } = useLocation();
+  const { items, subtotal, deliveryFee, vat, total, clearCart, setLastPlacedOrder } = useCart();
+  const { deliveryInfo, locationName } = useLocation();
+  const idempotencyKeyRef = useRef<string>(generateIdempotencyKey());
 
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | null>('mpesa');
   const [isWorkOrder, setIsWorkOrder] = useState(false);
@@ -31,11 +34,16 @@ export default function CheckoutPaymentScreen() {
   // M-Pesa STK Push simulation state
   const [stkModalVisible, setStkModalVisible] = useState(false);
   const [stkState, setStkState] = useState<'prompting' | 'processing' | 'success'>('prompting');
+  const [errorModal, setErrorModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const displayItems = items.length > 0 ? items : [
     {
       cartItemId: 'mock-1',
-      product: { id: 'streetwise-3', name: 'Streetwise 3 Crunch', price: 650, category: 'burgers', image: null },
+      product: { id: 'streetwise-3-crunch', name: 'Streetwise 3 Crunch', price: 650, category: 'for-me', image: null },
       quantity: 1,
       unitPrice: 650,
       totalPrice: 650,
@@ -43,6 +51,7 @@ export default function CheckoutPaymentScreen() {
     {
       cartItemId: 'mock-2',
       product: { id: '2l-soda', name: '2L Soda', price: 350, category: 'drinks', image: null },
+      selectedOption: { id: 'coke', name: 'Coke' },
       quantity: 2,
       unitPrice: 350,
       totalPrice: 700,
@@ -55,27 +64,89 @@ export default function CheckoutPaymentScreen() {
   const displayTotal = total > 0 ? total : 1500;
   const totalItemCount = items.length > 0 ? items.reduce((s, i) => s + i.quantity, 0) : 3;
 
-  const handlePay = () => {
+  const submitOrderToBackend = async () => {
+    const orderItems = displayItems.map((item) => ({
+      productId: item.product.id,
+      optionId: item.selectedOption?.id,
+      quantity: item.quantity,
+    }));
+
+    const finalDeliveryInfo = {
+      addressName: deliveryInfo?.addressName || locationName || 'East Kisumu',
+      landmark: deliveryInfo?.landmark || 'Near LBDA HQ',
+      estateBuilding: deliveryInfo?.estateBuilding || '',
+      deliveryInstructions: deliveryInfo?.deliveryInstructions || '',
+      phone: deliveryInfo?.phone || '+254 712 345 678',
+      saveAddress: deliveryInfo?.saveAddress ?? true,
+    };
+
+    try {
+      const createdOrder = await ordersApi.createOrder(
+        {
+          items: orderItems,
+          deliveryInfo: finalDeliveryInfo,
+          paymentMethod: paymentMethod || 'mpesa',
+          workOrderNotes: isWorkOrder ? 'Work Order Receipt Requested' : undefined,
+        },
+        idempotencyKeyRef.current
+      );
+      setLastPlacedOrder(createdOrder);
+      return createdOrder;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        throw err;
+      }
+      // Offline / unauthenticated guest fallback order
+      return null;
+    }
+  };
+
+  const handlePay = async () => {
     if (!paymentMethod) return;
 
     if (paymentMethod === 'mpesa') {
       setStkModalVisible(true);
       setStkState('prompting');
 
-      setTimeout(() => {
+      setTimeout(async () => {
         setStkState('processing');
-        setTimeout(() => {
-          setStkState('success');
+        try {
+          const created = await submitOrderToBackend();
           setTimeout(() => {
-            setStkModalVisible(false);
-            clearCart();
-            router.replace('/checkout/confirmation');
+            setStkState('success');
+            setTimeout(() => {
+              setStkModalVisible(false);
+              clearCart();
+              router.replace({
+                pathname: '/checkout/confirmation',
+                params: { orderId: created?.id || 'LPC-8924' },
+              });
+            }, 1000);
           }, 1200);
-        }, 1800);
-      }, 1500);
+        } catch (err: any) {
+          setStkModalVisible(false);
+          setErrorModal({
+            visible: true,
+            title: 'Item Out of Stock',
+            message: err?.message || 'One or more items in your cart are currently unavailable.',
+          });
+        }
+      }, 1200);
     } else {
-      clearCart();
-      router.replace('/checkout/confirmation');
+      try {
+        const created = await submitOrderToBackend();
+        clearCart();
+        router.replace({
+          pathname: '/checkout/confirmation',
+          params: { orderId: created?.id || 'LPC-8924' },
+        });
+      } catch (err: any) {
+        setErrorModal({
+          visible: true,
+          title: 'Item Out of Stock',
+          message: err?.message || 'One or more items in your cart are currently unavailable.',
+        });
+      }
     }
   };
 
@@ -301,6 +372,14 @@ export default function CheckoutPaymentScreen() {
           </View>
         </View>
       </Modal>
+
+      <FeedbackModal
+        visible={errorModal.visible}
+        type="error"
+        title={errorModal.title}
+        message={errorModal.message}
+        onPrimaryPress={() => setErrorModal((s) => ({ ...s, visible: false }))}
+      />
     </View>
   );
 }

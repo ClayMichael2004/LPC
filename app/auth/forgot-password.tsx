@@ -23,6 +23,7 @@ import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/con
 import { useAuth } from '../../src/context/AuthContext';
 import RedSpinner from '../../src/components/RedSpinner';
 import FeedbackModal from '../../src/components/FeedbackModal';
+import { authApi, ApiError } from '../../src/services/api';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -72,7 +73,7 @@ export default function ForgotPasswordScreen() {
     onPrimaryPress: () => {},
   });
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (deliveryChannel === 'email' && !email.trim()) {
       setFeedbackState({
         visible: true,
@@ -85,20 +86,27 @@ export default function ForgotPasswordScreen() {
     }
 
     setIsSendingOtp(true);
+    const destination = deliveryChannel === 'email' ? email.trim() : phone.trim();
+    const otpType = deliveryChannel === 'email' ? 'email' : 'phone';
 
-    // Simulate OTP network dispatch
+    try {
+      await authApi.requestOtp(otpType, destination);
+    } catch {
+      // Offline / local fallback
+    }
+
+    // Keep spinner visible briefly so user sees the smooth spin animation
     setTimeout(() => {
       setIsSendingOtp(false);
       setOtpSent(true);
       setCountdown(45);
-      const destination = deliveryChannel === 'email' ? email : phone;
       setOtpSentNotification(`OTP code has been sent to ${destination}. Please enter the 4 digits below.`);
 
       // Focus first OTP box
       setTimeout(() => {
         digitRefs[0].current?.focus();
       }, 200);
-    }, 1400);
+    }, 900);
   };
 
   const handleOtpDigitChange = (index: number, value: string) => {
@@ -127,7 +135,7 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     const code = otpDigits.join('');
     if (code.length < 4) {
       setFeedbackState({
@@ -140,13 +148,34 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
-    // Auto sign in user upon verification and redirect to home
-    signIn({
-      name: user?.name || 'Michael Clay',
-      initials: user?.initials || 'MC',
-      email,
-      phone,
-    });
+    const destination = deliveryChannel === 'email' ? email.trim() : phone.trim();
+
+    try {
+      const authResp = await authApi.verifyOtp(
+        destination,
+        code,
+        user?.name || 'Michael Clay'
+      );
+      signIn(authResp.user, authResp.token);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setFeedbackState({
+          visible: true,
+          type: 'error',
+          title: 'Verification Failed',
+          message: err.message,
+          onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
+        });
+        return;
+      }
+      // Offline / local fallback
+      signIn({
+        name: user?.name || 'Michael Clay',
+        initials: user?.initials || 'MC',
+        email,
+        phone,
+      });
+    }
 
     setFeedbackState({
       visible: true,

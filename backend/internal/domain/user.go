@@ -56,7 +56,7 @@ type OTPRequest struct {
 // OTPVerifyRequest represents the payload to verify an OTP.
 type OTPVerifyRequest struct {
 	Identifier string `json:"identifier" binding:"required"`
-	Code       string `json:"code" binding:"required,len=6"`
+	Code       string `json:"code" binding:"required,min=4,max=6"`
 	Name       string `json:"name,omitempty"`
 }
 

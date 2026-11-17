@@ -21,7 +21,7 @@ import { useCategory } from '../../src/context/CategoryContext';
 export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ categoryId?: string }>();
-  const { selectedCategory, setSelectedCategory } = useCategory();
+  const { selectedCategory, setSelectedCategory, products } = useCategory();
   const [searchQuery, setSearchQuery] = useState('');
   const tabScrollRef = useRef<ScrollView>(null);
   const { totalCount } = useCart();
@@ -53,8 +53,11 @@ export default function MenuScreen() {
     }
   }, [params.categoryId]);
 
+  const sourceProducts = products.length > 0 ? products : PRODUCTS;
+
   // Filter products by selected category and search query
-  const filteredProducts = PRODUCTS.filter((product) => {
+  const filteredProducts = sourceProducts.filter((product) => {
+    if (product.isAvailable === false) return false;
     const matchesSearch =
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));

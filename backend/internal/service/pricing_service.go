@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/littlepolocafe/backend/internal/domain"
 )
@@ -65,8 +66,9 @@ func (s *PricingService) CalculatePrice(ctx context.Context, items []domain.Orde
 			// Verify selected option belongs to product's option group
 			var matchedOption *domain.ProductOption
 			for _, opt := range product.OptionsGroup.Options {
-				if opt.ID == *input.OptionID {
-					matchedOption = &opt
+				if opt.ID == *input.OptionID || strings.HasPrefix(opt.ID, *input.OptionID+"-") {
+					optCopy := opt
+					matchedOption = &optCopy
 					break
 				}
 			}

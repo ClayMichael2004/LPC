@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,12 +8,35 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Receipt, ArrowRight } from 'lucide-react-native';
+import { ChevronLeft, Receipt, ArrowRight, Clock } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
+import { ordersApi } from '../../src/services/api';
+import { useCart } from '../../src/context/CartContext';
+import { Order } from '../../src/types';
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { lastPlacedOrder } = useCart();
+  const [orders, setOrders] = useState<Order[]>(lastPlacedOrder ? [lastPlacedOrder] : []);
+
+  useEffect(() => {
+    let mounted = true;
+    ordersApi
+      .getMyOrders()
+      .then((serverOrders) => {
+        if (mounted && Array.isArray(serverOrders) && serverOrders.length > 0) {
+          setOrders(serverOrders);
+        }
+      })
+      .catch(() => {
+        // Keep local state if offline or unauthenticated
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [lastPlacedOrder]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -36,27 +59,74 @@ export default function OrderHistoryScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          orders.length > 0 && styles.scrollContentList,
+        ]}
       >
-        <View style={styles.emptyContainer}>
-          <View style={styles.iconCircle}>
-            <Receipt size={42} color="#9CA3AF" strokeWidth={1.8} />
-          </View>
-          <Text style={styles.emptyTitle}>No past orders currently</Text>
-          <Text style={styles.emptySubtitle}>
-            When you place orders for Little Polo cold brews, burgers, or brunch, your receipts will appear here.
-          </Text>
+        {orders.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.iconCircle}>
+              <Receipt size={42} color="#9CA3AF" strokeWidth={1.8} />
+            </View>
+            <Text style={styles.emptyTitle}>No past orders currently</Text>
+            <Text style={styles.emptySubtitle}>
+              When you place orders for Little Polo cold brews, burgers, or brunch, your receipts will appear here.
+            </Text>
 
-          <Pressable
-            style={styles.exploreButton}
-            onPress={() => router.push('/(tabs)/menu')}
-            accessibilityRole="button"
-            accessibilityLabel="Explore Menu"
-          >
-            <Text style={styles.exploreButtonText}>Explore Menu</Text>
-            <ArrowRight size={18} color={COLORS.white} strokeWidth={2.2} style={styles.btnArrow} />
-          </Pressable>
-        </View>
+            <Pressable
+              style={styles.exploreButton}
+              onPress={() => router.push('/(tabs)/menu')}
+              accessibilityRole="button"
+              accessibilityLabel="Explore Menu"
+            >
+              <Text style={styles.exploreButtonText}>Explore Menu</Text>
+              <ArrowRight size={18} color={COLORS.white} strokeWidth={2.2} style={styles.btnArrow} />
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.ordersList}>
+            {orders.map((order) => (
+              <Pressable
+                key={order.id}
+                style={styles.orderCard}
+                onPress={() =>
+                  router.push({
+                    pathname: '/checkout/confirmation',
+                    params: { orderId: order.id },
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`View order ${order.id}`}
+              >
+                <View style={styles.orderHeaderRow}>
+                  <Text style={styles.orderIdText}>Order #{order.id}</Text>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusBadgeText}>{order.status}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.orderItemsText} numberOfLines={2}>
+                  {(order.items || [])
+                    .map((i) => `${i.quantity}× ${i.productName}`)
+                    .join(', ')}
+                </Text>
+
+                <View style={styles.orderFooterRow}>
+                  <View style={styles.orderMetaRow}>
+                    <Clock size={14} color={COLORS.textSecondary} />
+                    <Text style={styles.orderAddressText}>
+                      {order.deliveryInfo?.addressName || 'East Kisumu'}
+                    </Text>
+                  </View>
+                  <Text style={styles.orderTotalText}>
+                    KSh {Number(order.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -97,6 +167,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
     paddingBottom: 60,
+  },
+  scrollContentList: {
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
+    paddingTop: SPACING.lg,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -143,5 +218,67 @@ const styles = StyleSheet.create({
   },
   btnArrow: {
     marginLeft: 8,
+  },
+  ordersList: {
+    gap: SPACING.md,
+  },
+  orderCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    padding: SPACING.md,
+    ...SHADOW.soft,
+  },
+  orderHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  orderIdText: {
+    fontFamily: FONTS.bold,
+    fontSize: 15,
+    color: COLORS.heading,
+  },
+  statusBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: RADIUS.full,
+  },
+  statusBadgeText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    color: '#075B35',
+  },
+  orderItemsText: {
+    fontFamily: FONTS.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+  },
+  orderFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 8,
+  },
+  orderMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  orderAddressText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  orderTotalText: {
+    fontFamily: FONTS.bold,
+    fontSize: 14,
+    color: COLORS.heading,
   },
 });

@@ -21,17 +21,19 @@ const SLIDE_WIDTH = SCREEN_WIDTH - SPACING.lg * 2;
 
 export default function BrowseCategoriesSlideshow() {
   const router = useRouter();
-  const { selectCategoryAndNavigate } = useCategory();
+  const { selectCategoryAndNavigate, categories } = useCategory();
   const [activePage, setActivePage] = useState(0);
   const activePageRef = useRef(0);
   activePageRef.current = activePage;
   const scrollRef = useRef<ScrollView>(null);
   const isInteracting = useRef(false);
 
+  const sourceCategories = categories.length > 0 ? categories : CATEGORIES;
+
   // Split categories into chunks of 4 (2x2 grid per page)
   const pages: Category[][] = [];
-  for (let i = 0; i < CATEGORIES.length; i += 4) {
-    pages.push(CATEGORIES.slice(i, i + 4));
+  for (let i = 0; i < sourceCategories.length; i += 4) {
+    pages.push(sourceCategories.slice(i, i + 4));
   }
 
   useEffect(() => {

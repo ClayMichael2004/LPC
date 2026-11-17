@@ -39,7 +39,7 @@ const WEEKDAY_NAMES = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export default function EditPersonalDetailsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, signIn } = useAuth();
+  const { user, updateProfile } = useAuth();
 
   const nameParts = (user?.name || 'Michael Clay').split(' ');
   const [firstName, setFirstName] = useState(nameParts[0] || 'Michael');
@@ -139,7 +139,7 @@ export default function EditPersonalDetailsScreen() {
     onPrimaryPress: () => {},
   });
 
-  const handleSaveDetails = () => {
+  const handleSaveDetails = async () => {
     if (!firstName.trim()) {
       setFeedbackModalState({
         visible: true,
@@ -154,7 +154,7 @@ export default function EditPersonalDetailsScreen() {
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
     const initials = `${firstName[0] || 'M'}${lastName[0] || 'C'}`.toUpperCase();
 
-    signIn({
+    await updateProfile({
       name: fullName,
       initials,
       phone: phone || '+254 712 345 678',
