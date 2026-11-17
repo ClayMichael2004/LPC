@@ -85,6 +85,7 @@ func (r *ProductRepository) GetAllProducts(ctx context.Context) ([]domain.Produc
 		p.UpdatedAt = domain.ToEAT(updatedAt)
 		products = append(products, p)
 	}
+	rows.Close()
 
 	// Fetch option groups and options for products that have them
 	for i := range products {

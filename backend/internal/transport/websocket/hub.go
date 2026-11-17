@@ -49,8 +49,8 @@ func NewHub(redisClient *redisclient.Client) *Hub {
 		clients:      make(map[*Client]bool),
 		orderRooms:   make(map[string]map[*Client]bool),
 		adminClients: make(map[*Client]bool),
-		register:     make(chan *Client),
-		unregister:   make(chan *Client),
+		register:     make(chan *Client, 128),
+		unregister:   make(chan *Client, 128),
 		redisClient:  redisClient,
 	}
 }
@@ -118,9 +118,11 @@ func (h *Hub) BroadcastOrderUpdate(orderID string, tracking *domain.OrderTrackin
 		return
 	}
 
-	// Also publish to Redis for multi-instance scaling
+	// Publish to Redis for multi-instance fan-out; fallback to direct local dispatch if Redis is nil or errors
 	if h.redisClient != nil {
-		_ = h.redisClient.Publish(context.Background(), "lpc:events:orders", data).Err()
+		if err := h.redisClient.Publish(context.Background(), "lpc:events:orders", data).Err(); err == nil {
+			return
+		}
 	}
 
 	h.dispatchLocally(orderID, data)
@@ -141,7 +143,9 @@ func (h *Hub) BroadcastCourierLocation(orderID string, coords domain.Coordinates
 	}
 
 	if h.redisClient != nil {
-		_ = h.redisClient.Publish(context.Background(), "lpc:events:orders", data).Err()
+		if err := h.redisClient.Publish(context.Background(), "lpc:events:orders", data).Err(); err == nil {
+			return
+		}
 	}
 
 	h.dispatchLocally(orderID, data)

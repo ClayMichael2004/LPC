@@ -8,6 +8,8 @@ import (
 
 	"github.com/littlepolocafe/backend/internal/domain"
 	"github.com/littlepolocafe/backend/internal/repository/redis"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/singleflight"
 )
 
 type ProductCatalog interface {
@@ -22,6 +24,7 @@ type ProductCatalog interface {
 type MenuService struct {
 	productRepo ProductCatalog
 	cache       *redis.MenuCache
+	sfGroup     singleflight.Group
 }
 
 func NewMenuService(productRepo ProductCatalog, cache *redis.MenuCache) *MenuService {
@@ -31,36 +34,64 @@ func NewMenuService(productRepo ProductCatalog, cache *redis.MenuCache) *MenuSer
 	}
 }
 
-// GetFullMenu implements the Cache-Aside pattern: checks Redis first; on miss, loads from Postgres and warms Redis.
+// GetFullMenu implements the Cache-Aside pattern with singleflight stampede protection
+// and parallel errgroup PostgreSQL querying on cache miss.
 func (s *MenuService) GetFullMenu(ctx context.Context) (*domain.FullMenu, error) {
 	// 1. Check Redis Cache
 	cachedMenu, err := s.cache.GetFullMenu(ctx)
 	if err == nil && cachedMenu != nil {
-		log.Println("[MenuService] Returning full menu from Redis Cache (Cache Hit).")
 		return cachedMenu, nil
 	}
 
-	// 2. Cache Miss: Query PostgreSQL
-	log.Println("[MenuService] Redis Cache miss. Querying PostgreSQL...")
-	categories, err := s.productRepo.GetAllCategories(ctx)
+	// 2. Cache Miss: Coalesce concurrent requests via singleflight to prevent cache stampedes
+	val, err, _ := s.sfGroup.Do("full_menu", func() (interface{}, error) {
+		// Double-check cache inside singleflight
+		if m, err := s.cache.GetFullMenu(ctx); err == nil && m != nil {
+			return m, nil
+		}
+
+		log.Println("[MenuService] Redis Cache miss. Querying PostgreSQL in parallel...")
+		var (
+			categories []domain.Category
+			products   []domain.Product
+		)
+
+		g, gCtx := errgroup.WithContext(ctx)
+		g.Go(func() error {
+			var cErr error
+			categories, cErr = s.productRepo.GetAllCategories(gCtx)
+			if cErr != nil {
+				return fmt.Errorf("failed to fetch categories: %w", cErr)
+			}
+			return nil
+		})
+		g.Go(func() error {
+			var pErr error
+			products, pErr = s.productRepo.GetAllProducts(gCtx)
+			if pErr != nil {
+				return fmt.Errorf("failed to fetch products: %w", pErr)
+			}
+			return nil
+		})
+
+		if err := g.Wait(); err != nil {
+			return nil, err
+		}
+
+		menu := &domain.FullMenu{
+			Categories: categories,
+			Products:   products,
+		}
+
+		// 3. Populate Redis Cache with 1-hour TTL
+		_ = s.cache.SetFullMenu(ctx, menu, 1*time.Hour)
+		return menu, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch categories: %w", err)
+		return nil, err
 	}
 
-	products, err := s.productRepo.GetAllProducts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch products: %w", err)
-	}
-
-	menu := &domain.FullMenu{
-		Categories: categories,
-		Products:   products,
-	}
-
-	// 3. Populate Redis Cache asynchronously or with 1-hour TTL
-	_ = s.cache.SetFullMenu(ctx, menu, 1*time.Hour)
-
-	return menu, nil
+	return val.(*domain.FullMenu), nil
 }
 
 // GetProductByID retrieves a single product by ID.

@@ -360,6 +360,7 @@ func (r *OrderRepository) GetOrdersByUserID(ctx context.Context, userID string) 
 
 		orders = append(orders, o)
 	}
+	rows.Close()
 
 	for i := range orders {
 		items, err := r.getOrderItems(ctx, orders[i].ID)
@@ -431,8 +432,22 @@ func (r *OrderRepository) GetAllOrders(ctx context.Context, statusFilter *domain
 		o.CreatedAt = domain.ToEAT(createdAt)
 		o.UpdatedAt = domain.ToEAT(updatedAt)
 
+		if courierName != nil && courierPhone != nil {
+			o.Courier = &domain.CourierInfo{
+				Name:  *courierName,
+				Phone: *courierPhone,
+			}
+			if courierLat != nil && courierLng != nil {
+				o.Courier.Location = &domain.Coordinates{
+					Lat: *courierLat,
+					Lng: *courierLng,
+				}
+			}
+		}
+
 		orders = append(orders, o)
 	}
+	rows.Close()
 
 	for i := range orders {
 		items, err := r.getOrderItems(ctx, orders[i].ID)
