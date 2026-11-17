@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import {
   Category,
   DeliveryInfo,
@@ -12,10 +13,23 @@ import {
   UserProfile,
 } from '../types';
 
-const DEFAULT_HOST = Platform.select({
-  android: '10.0.2.2:8080',
-  default: 'localhost:8080',
-});
+function resolveBackendHost(): string {
+  const debuggerHost =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  if (debuggerHost) {
+    const lanIp = debuggerHost.split(':')[0];
+    if (lanIp && lanIp !== 'localhost' && lanIp !== '127.0.0.1') {
+      return `${lanIp}:8080`;
+    }
+  }
+  return Platform.select({
+    android: '10.0.2.2:8080',
+    default: 'localhost:8080',
+  }) as string;
+}
+
+const DEFAULT_HOST = resolveBackendHost();
 
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || `http://${DEFAULT_HOST}/api/v1`;
