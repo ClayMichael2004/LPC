@@ -25,10 +25,10 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		Port:               getEnv("PORT", "8080"),
+		Port:               getEnv("PORT", "8085"),
 		Env:                getEnv("ENV", "development"),
-		DatabaseURL:        getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/lpc_db?sslmode=disable"),
-		RedisURL:           getEnv("REDIS_URL", "localhost:6379"),
+		DatabaseURL:        getEnv("DATABASE_URL", "postgres://postgres:postgrespassword@localhost:5435/lpc_db?sslmode=disable"),
+		RedisURL:           getEnv("REDIS_URL", "localhost:6380"),
 		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
 		JWTSecret:          getEnv("JWT_SECRET", "little-polo-cafe-secret-key-east-africa-2026"),
 		JWTExpiryHours:     getEnvInt("JWT_EXPIRY_HOURS", 168),

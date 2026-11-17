@@ -20,12 +20,12 @@ function resolveBackendHost(): string {
   if (debuggerHost) {
     const lanIp = debuggerHost.split(':')[0];
     if (lanIp && lanIp !== 'localhost' && lanIp !== '127.0.0.1') {
-      return `${lanIp}:8080`;
+      return `${lanIp}:8085`;
     }
   }
   return Platform.select({
-    android: '10.0.2.2:8080',
-    default: 'localhost:8080',
+    android: '10.0.2.2:8085',
+    default: 'localhost:8085',
   }) as string;
 }
 
