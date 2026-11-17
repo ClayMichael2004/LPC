@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: postgrespassword
       POSTGRES_DB: lpc_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     container_name: lpc_redis
     restart: always
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -41,7 +41,7 @@ services:
       - "8080:8080"
     environment:
       PORT: 8080
-      ENV: production
+      ENV: development
       DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/lpc_db?sslmode=disable
       REDIS_URL: redis:6379
       JWT_SECRET: little-polo-cafe-secret-key-east-africa-2026
