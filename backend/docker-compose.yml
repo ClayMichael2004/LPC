@@ -10,7 +10,7 @@ services:
     ports:
       - "5435:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - lpc_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d lpc_db"]
       interval: 5s
@@ -24,7 +24,7 @@ services:
     ports:
       - "6380:6379"
     volumes:
-      - redisdata:/data
+      - lpc_redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -57,5 +57,5 @@ services:
         condition: service_healthy
 
 volumes:
-  pgdata:
-  redisdata:
+  lpc_pgdata:
+  lpc_redisdata:
