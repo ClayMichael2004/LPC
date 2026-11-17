@@ -32,7 +32,7 @@ export default function HomeScreen() {
         <View style={styles.highlightsSection}>
           <Text style={styles.sectionTitle}>TODAY'S SPECIALS</Text>
 
-          {/* Feature Card 1: Blue Tint */}
+          {/* Feature Card 1: Consistent Light Blue Tint */}
           <Pressable
             onPress={() => selectCategoryAndNavigate('artisan-coffee')}
             style={[styles.featureCard, { backgroundColor: COLORS.serviceBlueTint }]}
@@ -53,67 +53,67 @@ export default function HomeScreen() {
             <ArrowRight size={20} color={COLORS.serviceBlueIcon} strokeWidth={2.2} />
           </Pressable>
 
-          {/* Feature Card 2: Green Tint */}
+          {/* Feature Card 2: Consistent Light Blue Tint */}
           <Pressable
             onPress={() => selectCategoryAndNavigate('burgers')}
-            style={[styles.featureCard, { backgroundColor: COLORS.serviceGreenTint }]}
+            style={[styles.featureCard, { backgroundColor: COLORS.serviceBlueTint }]}
             accessibilityRole="button"
             accessibilityLabel="Explore Fresh Grilled Gourmet Burgers"
           >
             <View style={[styles.featureIconCircle, { backgroundColor: '#FFFFFF' }]}>
-              <Flame size={24} color={COLORS.serviceGreenIcon} strokeWidth={2.2} />
+              <Flame size={24} color={COLORS.serviceBlueIcon} strokeWidth={2.2} />
             </View>
             <View style={styles.featureInfo}>
-              <Text style={[styles.featureTitle, { color: COLORS.serviceGreenIcon }]}>
+              <Text style={[styles.featureTitle, { color: COLORS.serviceBlueIcon }]}>
                 Brioche Burgers & Bakes
               </Text>
               <Text style={styles.featureDesc}>
                 Artisanal house relish, melted cheddar, and crisp fresh patties.
               </Text>
             </View>
-            <ArrowRight size={20} color={COLORS.serviceGreenIcon} strokeWidth={2.2} />
+            <ArrowRight size={20} color={COLORS.serviceBlueIcon} strokeWidth={2.2} />
           </Pressable>
 
-          {/* Feature Card 3: Pink Tint */}
+          {/* Feature Card 3: Consistent Light Blue Tint */}
           <Pressable
             onPress={() => selectCategoryAndNavigate('breakfast')}
-            style={[styles.featureCard, { backgroundColor: COLORS.servicePinkTint }]}
+            style={[styles.featureCard, { backgroundColor: COLORS.serviceBlueTint }]}
             accessibilityRole="button"
             accessibilityLabel="Explore Sunrise Breakfast"
           >
             <View style={[styles.featureIconCircle, { backgroundColor: '#FFFFFF' }]}>
-              <Sparkles size={24} color={COLORS.servicePinkIcon} strokeWidth={2.2} />
+              <Sparkles size={24} color={COLORS.serviceBlueIcon} strokeWidth={2.2} />
             </View>
             <View style={styles.featureInfo}>
-              <Text style={[styles.featureTitle, { color: COLORS.servicePinkIcon }]}>
+              <Text style={[styles.featureTitle, { color: COLORS.serviceBlueIcon }]}>
                 Kisumu Lakeview Brunch
               </Text>
               <Text style={styles.featureDesc}>
                 Fluffy buttermilk pancakes, wildflower honey, and fresh fruit bowls.
               </Text>
             </View>
-            <ArrowRight size={20} color={COLORS.servicePinkIcon} strokeWidth={2.2} />
+            <ArrowRight size={20} color={COLORS.serviceBlueIcon} strokeWidth={2.2} />
           </Pressable>
 
-          {/* Feature Card 4: Purple Tint — Sunday Family Oil Painting */}
+          {/* Feature Card 4: Consistent Light Blue Tint — Sunday Family Oil Painting */}
           <Pressable
             onPress={() => router.push('/(tabs)/activities')}
-            style={[styles.featureCard, { backgroundColor: COLORS.servicePurpleTint }]}
+            style={[styles.featureCard, { backgroundColor: COLORS.serviceBlueTint }]}
             accessibilityRole="button"
             accessibilityLabel="Explore Sunday Family Oil Painting Activity"
           >
             <View style={[styles.featureIconCircle, { backgroundColor: '#FFFFFF' }]}>
-              <Palette size={24} color={COLORS.servicePurpleIcon} strokeWidth={2.2} />
+              <Palette size={24} color={COLORS.serviceBlueIcon} strokeWidth={2.2} />
             </View>
             <View style={styles.featureInfo}>
-              <Text style={[styles.featureTitle, { color: COLORS.servicePurpleIcon }]}>
+              <Text style={[styles.featureTitle, { color: COLORS.serviceBlueIcon }]}>
                 Sunday Family Oil Painting
               </Text>
               <Text style={styles.featureDesc}>
                 Sundays 12–2 PM: Fun guided sketches & oil paints for little ones in our garden terrace.
               </Text>
             </View>
-            <ArrowRight size={20} color={COLORS.servicePurpleIcon} strokeWidth={2.2} />
+            <ArrowRight size={20} color={COLORS.serviceBlueIcon} strokeWidth={2.2} />
           </Pressable>
         </View>
 

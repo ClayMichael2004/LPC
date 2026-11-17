@@ -110,15 +110,15 @@ export default function ActivitiesScreen() {
           </Text>
         </View>
 
-        {/* Otto Mobile Pastel Detail Cards */}
+        {/* Otto Mobile Pastel Detail Cards (Consistent Light Blue Tint) */}
         <View style={styles.highlightsContainer}>
-          {/* Card 1: Schedule (Green Pastel Tint) */}
-          <View style={[styles.highlightCard, { backgroundColor: COLORS.serviceGreenTint }]}>
+          {/* Card 1: Schedule */}
+          <View style={[styles.highlightCard, { backgroundColor: COLORS.serviceBlueTint }]}>
             <View style={[styles.highlightIconCircle, { backgroundColor: COLORS.white }]}>
-              <Clock size={22} color={COLORS.serviceGreenIcon} strokeWidth={2.3} />
+              <Clock size={22} color={COLORS.serviceBlueIcon} strokeWidth={2.3} />
             </View>
             <View style={styles.highlightTextCol}>
-              <Text style={[styles.highlightTitle, { color: COLORS.serviceGreenIcon }]}>
+              <Text style={[styles.highlightTitle, { color: COLORS.serviceBlueIcon }]}>
                 Sundays · 12:00 PM – 2:00 PM
               </Text>
               <Text style={styles.highlightDesc}>
@@ -127,7 +127,7 @@ export default function ActivitiesScreen() {
             </View>
           </View>
 
-          {/* Card 2: Materials & Sketches (Blue Pastel Tint) */}
+          {/* Card 2: Materials & Sketches */}
           <View style={[styles.highlightCard, { backgroundColor: COLORS.serviceBlueTint }]}>
             <View style={[styles.highlightIconCircle, { backgroundColor: COLORS.white }]}>
               <Brush size={22} color={COLORS.serviceBlueIcon} strokeWidth={2.3} />
@@ -142,13 +142,13 @@ export default function ActivitiesScreen() {
             </View>
           </View>
 
-          {/* Card 3: Location & Treats (Pink Pastel Tint) */}
-          <View style={[styles.highlightCard, { backgroundColor: COLORS.servicePinkTint }]}>
+          {/* Card 3: Location & Treats */}
+          <View style={[styles.highlightCard, { backgroundColor: COLORS.serviceBlueTint }]}>
             <View style={[styles.highlightIconCircle, { backgroundColor: COLORS.white }]}>
-              <Heart size={22} color={COLORS.servicePinkIcon} strokeWidth={2.3} />
+              <Heart size={22} color={COLORS.serviceBlueIcon} strokeWidth={2.3} />
             </View>
             <View style={styles.highlightTextCol}>
-              <Text style={[styles.highlightTitle, { color: COLORS.servicePinkIcon }]}>
+              <Text style={[styles.highlightTitle, { color: COLORS.serviceBlueIcon }]}>
                 Garden Terrace + Treat
               </Text>
               <Text style={styles.highlightDesc}>

@@ -24,7 +24,7 @@ export default function CheckoutPaymentScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { items, subtotal, deliveryFee, vat, total, clearCart, setLastPlacedOrder } = useCart();
-  const { deliveryInfo, locationName } = useLocation();
+  const { deliveryInfo, locationName, fullAddress } = useLocation();
   const idempotencyKeyRef = useRef<string>(generateIdempotencyKey());
 
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | null>('mpesa');
@@ -171,11 +171,16 @@ export default function CheckoutPaymentScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 140 }]}
       >
-        {/* Delivering to East Kisumu Card */}
+        {/* Delivering to Selected Location Card */}
         <View style={styles.deliveringCard}>
           <View style={styles.deliveringInfo}>
             <Text style={styles.deliveringLabel}>Delivering to</Text>
-            <Text style={styles.deliveringValue}>East Kisumu</Text>
+            <Text style={styles.deliveringValue}>{locationName}</Text>
+            {Boolean(deliveryInfo.estateBuilding || fullAddress) && (
+              <Text style={styles.deliveringLabel} numberOfLines={1}>
+                {deliveryInfo.estateBuilding || fullAddress}
+              </Text>
+            )}
           </View>
           <Pressable onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}>
             <Text style={styles.editText}>Edit</Text>

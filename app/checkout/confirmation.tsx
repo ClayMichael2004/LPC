@@ -12,7 +12,7 @@ export default function OrderConfirmationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ orderId?: string }>();
-  const { locationName } = useLocation();
+  const { locationName, fullAddress } = useLocation();
   const { lastPlacedOrder } = useCart();
 
   const resolvedOrderId = params.orderId || lastPlacedOrder?.id || 'LPC-8924';
@@ -66,7 +66,9 @@ export default function OrderConfirmationScreen() {
           <Text style={styles.etaTime}>
             {etaMinutes ? `~${etaMinutes} Minutes` : '20 – 30 Minutes'}
           </Text>
-          <Text style={styles.etaAddress}>Delivering to {locationName}, East Kisumu</Text>
+          <Text style={styles.etaAddress} numberOfLines={2}>
+            Delivering to {fullAddress || locationName}
+          </Text>
         </View>
 
         {/* Courier dispatch card */}

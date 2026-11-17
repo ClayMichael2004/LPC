@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -16,23 +16,45 @@ import ScreenHeader from '../../src/components/ScreenHeader';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useLocation } from '../../src/context/LocationContext';
 import { useCart } from '../../src/context/CartContext';
+import { useAuth } from '../../src/context/AuthContext';
 
 export default function CheckoutDeliveryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { locationName, deliveryInfo, updateDeliveryInfo } = useLocation();
+  const { locationName, fullAddress, deliveryInfo, updateDeliveryInfo } = useLocation();
   const { subtotal, deliveryFee, total } = useCart();
+  const { user } = useAuth();
 
-  const [estateBuilding, setEstateBuilding] = useState(deliveryInfo.estateBuilding || 'Funguo Estate, Block C, Apt 12, 3rd floor');
-  const [deliveryInstructions, setDeliveryInstructions] = useState(deliveryInfo.deliveryInstructions || 'Near Akila Gate, call when you arrive');
-  const [phone, setPhone] = useState(deliveryInfo.phone || '712 345 678');
+  const defaultPhone = (user?.phone || deliveryInfo.phone || '712 345 678')
+    .replace(/^\+?254\s*/, '')
+    .trim();
+
+  const [estateBuilding, setEstateBuilding] = useState(deliveryInfo.estateBuilding || '');
+  const [deliveryInstructions, setDeliveryInstructions] = useState(deliveryInfo.deliveryInstructions || '');
+  const [phone, setPhone] = useState(defaultPhone);
   const [saveAddress, setSaveAddress] = useState(deliveryInfo.saveAddress ?? true);
+
+  // Keep local form synchronized if location changes
+  useEffect(() => {
+    if (deliveryInfo.estateBuilding !== undefined) {
+      setEstateBuilding(deliveryInfo.estateBuilding);
+    }
+    if (deliveryInfo.deliveryInstructions !== undefined) {
+      setDeliveryInstructions(deliveryInfo.deliveryInstructions);
+    }
+  }, [locationName, fullAddress]);
+
+  const handleOpenLocationPicker = () => {
+    router.push({ pathname: '/location', params: { from: 'checkout' } });
+  };
 
   const handleContinue = () => {
     updateDeliveryInfo({
-      estateBuilding,
-      deliveryInstructions,
-      phone,
+      addressName: locationName,
+      landmark: fullAddress,
+      estateBuilding: estateBuilding.trim() || locationName,
+      deliveryInstructions: deliveryInstructions.trim(),
+      phone: phone.trim() || defaultPhone,
       saveAddress,
     });
     router.push('/checkout/payment');
@@ -61,7 +83,7 @@ export default function CheckoutDeliveryScreen() {
       >
         {/* Map Preview Card */}
         <View style={styles.mapCard}>
-          <View style={styles.mapSnippetWrapper}>
+          <Pressable onPress={handleOpenLocationPicker} style={styles.mapSnippetWrapper}>
             <Image
               source={require('../../assets/images/kisumu-mini-map.jpg')}
               style={styles.mapSnippetImage}
@@ -69,7 +91,7 @@ export default function CheckoutDeliveryScreen() {
             />
             {/* Adjust Pin Floating Button */}
             <Pressable
-              onPress={() => router.push('/')}
+              onPress={handleOpenLocationPicker}
               style={styles.adjustPinBtn}
               accessibilityRole="button"
               accessibilityLabel="Adjust pin on map"
@@ -77,11 +99,21 @@ export default function CheckoutDeliveryScreen() {
               <Navigation size={14} color={COLORS.heading} strokeWidth={2.4} />
               <Text style={styles.adjustPinText}>Adjust pin</Text>
             </Pressable>
-          </View>
+          </Pressable>
 
           <View style={styles.addressSummaryRow}>
-            <Text style={styles.addressTitle}>East Kisumu</Text>
-            <Pressable onPress={() => router.push('/')} hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}>
+            <View style={styles.addressTextCol}>
+              <Text style={styles.addressTitle}>{locationName}</Text>
+              <Text style={styles.addressSubtitle} numberOfLines={1}>
+                {fullAddress}
+              </Text>
+            </View>
+            <Pressable
+              onPress={handleOpenLocationPicker}
+              hitSlop={{ top: 8, bottom: 8, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Change delivery location"
+            >
               <Text style={styles.changeLink}>Change</Text>
             </Pressable>
           </View>
@@ -96,7 +128,7 @@ export default function CheckoutDeliveryScreen() {
             <TextInput
               value={estateBuilding}
               onChangeText={setEstateBuilding}
-              placeholder="e.g. Funguo Estate, Block C, Apt 12, 3rd floor"
+              placeholder={`e.g. Building, House/Apt no. near ${locationName}`}
               placeholderTextColor="#9CA3AF"
               style={styles.textInput}
             />
@@ -110,7 +142,7 @@ export default function CheckoutDeliveryScreen() {
             <TextInput
               value={deliveryInstructions}
               onChangeText={setDeliveryInstructions}
-              placeholder="e.g. Near Akila Gate, call when you arrive"
+              placeholder={`e.g. Gate instructions at ${locationName} or call on arrival`}
               placeholderTextColor="#9CA3AF"
               style={styles.textInput}
             />
@@ -279,10 +311,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: SPACING.md,
   },
+  addressTextCol: {
+    flex: 1,
+    paddingRight: SPACING.md,
+  },
   addressTitle: {
     fontFamily: FONTS.bold,
     fontSize: 16,
     color: COLORS.heading,
+  },
+  addressSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   changeLink: {
     fontFamily: FONTS.semibold,
