@@ -1,8 +1,10 @@
 package config
 
 import (
+	"bufio"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -23,7 +25,41 @@ type Config struct {
 	AdminPassword      string
 }
 
+func loadDotEnv() {
+	candidates := []string{".env", "../.env", "../../.env"}
+	for _, path := range candidates {
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+			val = strings.Trim(val, `"'`)
+			if _, exists := os.LookupEnv(key); !exists && val != "" {
+				_ = os.Setenv(key, val)
+			}
+		}
+		_ = f.Close()
+		break
+	}
+}
+
 func Load() *Config {
+	loadDotEnv()
+
+	// Strip spaces from Google 16-char App Passwords if present
+	rawSMTPPass := strings.ReplaceAll(getEnv("SMTP_PASSWORD", ""), " ", "")
+
 	return &Config{
 		Port:               getEnv("PORT", "8085"),
 		Env:                getEnv("ENV", "development"),
@@ -36,7 +72,7 @@ func Load() *Config {
 		SMTPHost:           getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:           getEnvInt("SMTP_PORT", 587),
 		SMTPUser:           getEnv("SMTP_USER", "mikewillmakeit2004@gmail.com"),
-		SMTPPassword:       getEnv("SMTP_PASSWORD", ""),
+		SMTPPassword:       rawSMTPPass,
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 		AdminEmail:         getEnv("ADMIN_EMAIL", "mikewillmakeit2004@gmail.com"),
 		AdminPassword:      getEnv("ADMIN_PASSWORD", "AdminLPC2026!"),

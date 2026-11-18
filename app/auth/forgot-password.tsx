@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,50 +15,27 @@ import {
   ChevronLeft,
   Mail,
   Smartphone,
-  CheckCircle2,
   Lock,
-  ArrowRight,
 } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import RedSpinner from '../../src/components/RedSpinner';
 import FeedbackModal from '../../src/components/FeedbackModal';
-import { authApi, ApiError } from '../../src/services/api';
+import { authApi } from '../../src/services/api';
+import { maskEmail, maskPhone } from './verify-otp';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, signIn } = useAuth();
+  const { user } = useAuth();
 
-  const [email, setEmail] = useState(user?.email || 'michaelclay2225@gmail.com');
-  const [phone, setPhone] = useState(user?.phone === '—' ? '+254 712 345 678' : user?.phone || '+254 712 345 678');
+  const [email] = useState(user?.email || 'michaelclay2225@gmail.com');
+  const [phone] = useState(
+    user?.phone === '—' ? '+254 712 345 678' : user?.phone || '+254 712 345 678'
+  );
   const [deliveryChannel, setDeliveryChannel] = useState<'email' | 'sms'>('email');
-
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpSentNotification, setOtpSentNotification] = useState<string | null>(null);
 
-  // 4-digit OTP state
-  const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
-  const digitRefs = [
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-    useRef<TextInput>(null),
-  ];
-
-  // Resend Countdown
-  const [countdown, setCountdown] = useState(0);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [countdown]);
-
-  // Modal feedback
   const [feedbackState, setFeedbackState] = useState<{
     visible: boolean;
     type: 'success' | 'error' | 'info';
@@ -79,7 +56,7 @@ export default function ForgotPasswordScreen() {
         visible: true,
         type: 'error',
         title: 'Email Required',
-        message: 'Please enter a valid email address to receive your OTP code.',
+        message: 'Please provide a valid email address to receive your OTP code.',
         onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
       });
       return;
@@ -88,105 +65,30 @@ export default function ForgotPasswordScreen() {
     setIsSendingOtp(true);
     const destination = deliveryChannel === 'email' ? email.trim() : phone.trim();
     const otpType = deliveryChannel === 'email' ? 'email' : 'phone';
+    let receivedDevCode = '';
 
     try {
-      await authApi.requestOtp(otpType, destination);
+      const resp = await authApi.requestOtp(otpType, destination);
+      if (resp?.devCode) {
+        receivedDevCode = resp.devCode.slice(0, 4);
+      }
     } catch {
       // Offline / local fallback
+      receivedDevCode = '1234';
     }
 
-    // Keep spinner visible briefly so user sees the smooth spin animation
+    // Show spinner animation briefly, then open the dedicated Verify OTP screen
     setTimeout(() => {
       setIsSendingOtp(false);
-      setOtpSent(true);
-      setCountdown(45);
-      setOtpSentNotification(`OTP code has been sent to ${destination}. Please enter the 4 digits below.`);
-
-      // Focus first OTP box
-      setTimeout(() => {
-        digitRefs[0].current?.focus();
-      }, 200);
+      router.push({
+        pathname: '/auth/verify-otp',
+        params: {
+          channel: deliveryChannel,
+          destination,
+          devCode: receivedDevCode,
+        },
+      });
     }, 900);
-  };
-
-  const handleOtpDigitChange = (index: number, value: string) => {
-    if (value.length > 1) {
-      // Handles pasting or rapid multi-input
-      const chars = value.slice(-1);
-      const newDigits = [...otpDigits];
-      newDigits[index] = chars;
-      setOtpDigits(newDigits);
-      if (index < 3) digitRefs[index + 1].current?.focus();
-      return;
-    }
-
-    const newDigits = [...otpDigits];
-    newDigits[index] = value;
-    setOtpDigits(newDigits);
-
-    if (value && index < 3) {
-      digitRefs[index + 1].current?.focus();
-    }
-  };
-
-  const handleOtpKeyPress = (index: number, key: string) => {
-    if (key === 'Backspace' && !otpDigits[index] && index > 0) {
-      digitRefs[index - 1].current?.focus();
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    const code = otpDigits.join('');
-    if (code.length < 4) {
-      setFeedbackState({
-        visible: true,
-        type: 'error',
-        title: 'Incomplete Code',
-        message: 'Please enter all 4 digits of the verification code.',
-        onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
-      });
-      return;
-    }
-
-    const destination = deliveryChannel === 'email' ? email.trim() : phone.trim();
-
-    try {
-      const authResp = await authApi.verifyOtp(
-        destination,
-        code,
-        user?.name || 'Michael Clay'
-      );
-      signIn(authResp.user, authResp.token);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setFeedbackState({
-          visible: true,
-          type: 'error',
-          title: 'Verification Failed',
-          message: err.message,
-          onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
-        });
-        return;
-      }
-      // Offline / local fallback
-      signIn({
-        name: user?.name || 'Michael Clay',
-        initials: user?.initials || 'MC',
-        email,
-        phone,
-      });
-    }
-
-    setFeedbackState({
-      visible: true,
-      type: 'success',
-      title: 'Identity Verified',
-      message: 'Your verification code is valid. Welcome back to Little Polo Cafe!',
-      onPrimaryPress: () => {
-        setFeedbackState((s) => ({ ...s, visible: false }));
-        router.replace('/(tabs)/home');
-      },
-    });
   };
 
   return (
@@ -265,7 +167,7 @@ export default function ForgotPasswordScreen() {
             <View style={styles.channelDetails}>
               <Text style={styles.channelTitle}>Send via Email</Text>
               <Text style={styles.channelSubtitle} numberOfLines={1}>
-                {email || 'Your registered email'}
+                {maskEmail(email)}
               </Text>
             </View>
             <View
@@ -298,7 +200,7 @@ export default function ForgotPasswordScreen() {
             <View style={styles.channelDetails}>
               <Text style={styles.channelTitle}>Send via SMS</Text>
               <Text style={styles.channelSubtitle} numberOfLines={1}>
-                {phone}
+                {maskPhone(phone)}
               </Text>
             </View>
             <View
@@ -330,76 +232,9 @@ export default function ForgotPasswordScreen() {
               <Text style={styles.loadingText}>Sending OTP...</Text>
             </View>
           ) : (
-            <Text style={styles.sendOtpButtonText}>
-              {otpSent ? 'Resend OTP Code' : 'Send OTP'}
-            </Text>
+            <Text style={styles.sendOtpButtonText}>Send OTP</Text>
           )}
         </Pressable>
-
-        {/* Sent Confirmation Banner */}
-        {otpSentNotification && (
-          <View style={styles.notificationBanner}>
-            <CheckCircle2 size={18} color="#10B981" strokeWidth={2.4} style={{ marginRight: 8 }} />
-            <Text style={styles.notificationText}>{otpSentNotification}</Text>
-          </View>
-        )}
-
-        {/* OTP Input Boxes (Always Visible once sent) */}
-        {otpSent && (
-          <View style={styles.otpSection}>
-            <Text style={styles.otpSectionTitle}>ENTER 4-DIGIT CODE</Text>
-
-            <View style={styles.otpInputsRow}>
-              {otpDigits.map((digit, idx) => (
-                <View
-                  key={`otp-box-${idx}`}
-                  style={[
-                    styles.otpBox,
-                    digit ? styles.otpBoxFilled : null,
-                  ]}
-                >
-                  <TextInput
-                    ref={digitRefs[idx]}
-                    value={digit}
-                    onChangeText={(val) => handleOtpDigitChange(idx, val)}
-                    onKeyPress={({ nativeEvent }) => handleOtpKeyPress(idx, nativeEvent.key)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    selectTextOnFocus
-                    style={styles.otpBoxInput}
-                  />
-                </View>
-              ))}
-            </View>
-
-            {/* Countdown / Resend Link */}
-            <View style={styles.resendWrapper}>
-              {countdown > 0 ? (
-                <Text style={styles.countdownText}>
-                  Resend code in {countdown}s
-                </Text>
-              ) : (
-                <Pressable onPress={handleSendOtp} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Text style={styles.resendActionText}>Resend code now</Text>
-                </Pressable>
-              )}
-            </View>
-
-            {/* Verify & Proceed Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.verifyButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleVerifyOtp}
-              accessibilityRole="button"
-              accessibilityLabel="Verify code"
-            >
-              <Text style={styles.verifyButtonText}>Verify & Proceed</Text>
-              <ArrowRight size={18} color={COLORS.white} strokeWidth={2.4} style={{ marginLeft: 8 }} />
-            </Pressable>
-          </View>
-        )}
       </ScrollView>
 
       {/* Modern In-App Feedback Modal */}
@@ -582,94 +417,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: 14,
     color: '#111827',
-  },
-  notificationBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: SPACING.xl,
-  },
-  notificationText: {
-    flex: 1,
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: '#065F46',
-    lineHeight: 18,
-  },
-  otpSection: {
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  otpSectionTitle: {
-    fontFamily: FONTS.bold,
-    fontSize: 12,
-    color: '#6B7280',
-    letterSpacing: 0.8,
-    marginBottom: SPACING.md,
-    textAlign: 'center',
-  },
-  otpInputsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: SPACING.md,
-  },
-  otpBox: {
-    width: 60,
-    height: 60,
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.white,
-  },
-  otpBoxFilled: {
-    borderColor: '#111827',
-    backgroundColor: '#FAFAFA',
-  },
-  otpBoxInput: {
-    width: '100%',
-    height: '100%',
-    textAlign: 'center',
-    fontFamily: FONTS.bold,
-    fontSize: 22,
-    color: COLORS.heading,
-  },
-  resendWrapper: {
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-  },
-  countdownText: {
-    fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: '#9CA3AF',
-  },
-  resendActionText: {
-    fontFamily: FONTS.semibold,
-    fontSize: 14,
-    color: COLORS.primary,
-    textDecorationLine: 'underline',
-  },
-  verifyButton: {
-    height: 52,
-    backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.full,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOW.soft,
-  },
-  verifyButtonText: {
-    fontFamily: FONTS.bold,
-    fontSize: 15,
-    color: COLORS.white,
   },
   buttonPressed: {
     opacity: 0.9,

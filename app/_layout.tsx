@@ -49,6 +49,8 @@ export default function RootLayout() {
                 <Stack.Screen name="location" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="auth/login" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="auth/register" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="auth/forgot-password" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="auth/verify-otp" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="profile/personal-info" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 <Stack.Screen name="profile/edit-details" options={{ headerShown: false, animation: 'slide_from_right' }} />

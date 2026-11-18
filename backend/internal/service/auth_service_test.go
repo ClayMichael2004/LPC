@@ -69,10 +69,10 @@ func TestAuthService_PhoneOTPWorkflow(t *testing.T) {
 	// 1. Request OTP
 	code, err := authService.RequestOTP(ctx, "phone", phone)
 	require.NoError(t, err)
-	assert.Len(t, code, 6)
+	assert.Len(t, code, 4)
 
 	// 2. Verify with wrong code -> Fail
-	_, err = authService.VerifyOTP(ctx, phone, "000000", "Michael")
+	_, err = authService.VerifyOTP(ctx, phone, "0000", "Michael")
 	assert.ErrorIs(t, err, service.ErrInvalidOTP)
 
 	// 3. Verify with correct code -> Success & JWT issued
@@ -100,7 +100,7 @@ func TestAuthService_EmailOTPWorkflow(t *testing.T) {
 	// 1. Request OTP using user's email
 	code, err := authService.RequestOTP(ctx, "email", email)
 	require.NoError(t, err)
-	assert.Len(t, code, 6)
+	assert.Len(t, code, 4)
 
 	// 2. Verify OTP
 	authResp, err := authService.VerifyOTP(ctx, email, code, "Mike Admin")

@@ -37,6 +37,8 @@ services:
       dockerfile: Dockerfile
     container_name: lpc_api
     restart: always
+    env_file:
+      - .env
     ports:
       - "8085:8080"
     environment:
@@ -46,9 +48,13 @@ services:
       REDIS_URL: redis:6379
       JWT_SECRET: little-polo-cafe-secret-key-east-africa-2026
       JWT_EXPIRY_HOURS: 168
-      OTP_SENDER_EMAIL: mikewillmakeit2004@gmail.com
-      ADMIN_EMAIL: mikewillmakeit2004@gmail.com
-      ADMIN_PASSWORD: AdminLPC2026!
+      OTP_SENDER_EMAIL: ${OTP_SENDER_EMAIL:-mikewillmakeit2004@gmail.com}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-mikewillmakeit2004@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-mikewillmakeit2004@gmail.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminLPC2026!}
       CORS_ALLOWED_ORIGINS: "*"
     depends_on:
       postgres:

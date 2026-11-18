@@ -256,11 +256,11 @@ func (s *AuthService) generateJWT(u *domain.User) (string, int64, error) {
 }
 
 func generate6DigitCode() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	n, err := rand.Int(rand.Reader, big.NewInt(9000))
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%06d", n.Int64()), nil
+	return fmt.Sprintf("%04d", n.Int64()+1000), nil
 }
 
 func computeInitials(name string) string {

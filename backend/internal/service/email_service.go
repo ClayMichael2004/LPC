@@ -1,12 +1,16 @@
 package service
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net"
 	"net/smtp"
 	"os"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/littlepolocafe/backend/internal/config"
 )
@@ -44,43 +48,104 @@ func NewEmailService(cfg *config.Config) *EmailService {
 	return &EmailService{cfg: cfg}
 }
 
-// SendOTP sends a 6-digit one-time password to the designated email address.
-func (s *EmailService) SendOTP(toEmail, code string) error {
-	subject := "Little Polo Cafe - Your Verification Code"
-	body := fmt.Sprintf(`Subject: %s
-MIME-Version: 1.0
-Content-Type: text/html; charset="UTF-8"
+func (s *EmailService) buildRFC5322HTMLMessage(toEmail, subject, htmlBody string) []byte {
+	fromHeader := fmt.Sprintf("Little Polo Cafe <%s>", s.cfg.OTPSenderEmail)
+	headers := strings.Join([]string{
+		fmt.Sprintf("From: %s", fromHeader),
+		fmt.Sprintf("To: %s", toEmail),
+		fmt.Sprintf("Subject: %s", subject),
+		"MIME-Version: 1.0",
+		`Content-Type: text/html; charset="UTF-8"`,
+		"",
+		htmlBody,
+	}, "\r\n")
+	return []byte(headers)
+}
 
-<!DOCTYPE html>
+func (s *EmailService) deliverMIME(toEmail string, msg []byte) bool {
+	// 1. Authenticated SMTP Relay (Gmail SMTP port 587 / 465)
+	if s.cfg.SMTPPassword != "" && s.cfg.SMTPUser != "" {
+		auth := smtp.PlainAuth("", s.cfg.SMTPUser, s.cfg.SMTPPassword, s.cfg.SMTPHost)
+		addr := fmt.Sprintf("%s:%d", s.cfg.SMTPHost, s.cfg.SMTPPort)
+		if err := smtp.SendMail(addr, auth, s.cfg.OTPSenderEmail, []string{toEmail}, msg); err != nil {
+			log.Printf("[EmailService SMTP Error] Failed to send email via %s to %s: %v", addr, toEmail, err)
+		} else {
+			log.Printf("[EmailService Live] Dispatched email to %s via %s", toEmail, s.cfg.SMTPHost)
+			return true
+		}
+	}
+
+	// 2. If not in unit-test mode and no SMTP password set, attempt direct MX delivery with 2.5s timeout
+	if s.cfg.Env != "test" && strings.Contains(toEmail, "@") {
+		parts := strings.SplitN(toEmail, "@", 2)
+		domain := parts[1]
+		mxRecords, err := net.LookupMX(domain)
+		if err == nil && len(mxRecords) > 0 {
+			mxHost := strings.TrimSuffix(mxRecords[0].Host, ".")
+			conn, err := net.DialTimeout("tcp", net.JoinHostPort(mxHost, "25"), 2500*time.Millisecond)
+			if err == nil {
+				defer conn.Close()
+				_ = conn.SetDeadline(time.Now().Add(4 * time.Second))
+				client, err := smtp.NewClient(conn, mxHost)
+				if err == nil {
+					defer client.Close()
+					if ok, _ := client.Extension("STARTTLS"); ok {
+						_ = client.StartTLS(&tls.Config{ServerName: mxHost})
+					}
+					if err := client.Mail(s.cfg.OTPSenderEmail); err == nil {
+						if err := client.Rcpt(toEmail); err == nil {
+							if wc, err := client.Data(); err == nil {
+								_, _ = wc.Write(msg)
+								if err := wc.Close(); err == nil {
+									_ = client.Quit()
+									log.Printf("[EmailService Direct MX] Delivered email directly to %s via %s", toEmail, mxHost)
+									return true
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// SendOTP sends a 4-digit one-time password to the designated email address.
+func (s *EmailService) SendOTP(toEmail, code string) error {
+	subject := fmt.Sprintf("Little Polo Cafe - Your %s Verification Code", code)
+	logoB64 := getLogoBase64()
+
+	var logoImgTag string
+	if logoB64 != "" {
+		logoImgTag = fmt.Sprintf(`<div style="text-align: center; margin-bottom: 20px;">
+      <img src="data:image/png;base64,%s" width="84" height="84" alt="Little Polo Cafe" style="width: 84px; height: 84px; border-radius: 42px; border: 2px solid #E5E7EB; display: inline-block; object-fit: contain;" />
+    </div>`, logoB64)
+	}
+
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
 <html>
-<body style="font-family: Arial, sans-serif; background-color: #F9FAFB; padding: 24px; color: #1F2937;">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #F9FAFB; padding: 24px; color: #1F2937;">
   <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #E5E7EB;">
-    <h2 style="color: #691414; margin-top: 0;">Little Polo Cafe</h2>
-    <p style="font-size: 15px; line-height: 24px;">Your 6-digit sign-in verification code is:</p>
-    <div style="background-color: #FCE7F3; border-radius: 12px; padding: 16px; text-align: center; margin: 24px 0;">
-      <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #691414;">%s</span>
+    %s
+    <h2 style="color: #691414; margin-top: 0; text-align: center;">Little Polo Cafe</h2>
+    <p style="font-size: 15px; line-height: 24px; text-align: center;">Your 4-digit verification code is:</p>
+    <div style="background-color: #FCE7F3; border-radius: 12px; padding: 18px; text-align: center; margin: 24px 0;">
+      <span style="font-size: 34px; font-weight: bold; letter-spacing: 8px; color: #691414;">%s</span>
     </div>
-    <p style="font-size: 13px; color: #6B7280; line-height: 20px;">
+    <p style="font-size: 13px; color: #6B7280; line-height: 20px; text-align: center;">
       This code expires in 5 minutes. If you did not request this code, you can safely ignore this email.
     </p>
     <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;" />
     <p style="font-size: 11px; color: #9CA3AF; text-align: center;">Little Polo Cafe · Kisumu, Kenya</p>
   </div>
 </body>
-</html>
-`, subject, code)
+</html>`, logoImgTag, code)
 
-	// If SMTP is fully configured, attempt live dispatch
-	if s.cfg.SMTPPassword != "" && s.cfg.SMTPUser != "" {
-		auth := smtp.PlainAuth("", s.cfg.SMTPUser, s.cfg.SMTPPassword, s.cfg.SMTPHost)
-		addr := fmt.Sprintf("%s:%d", s.cfg.SMTPHost, s.cfg.SMTPPort)
-		err := smtp.SendMail(addr, auth, s.cfg.OTPSenderEmail, []string{toEmail}, []byte(body))
-		if err != nil {
-			log.Printf("[Email OTP Error] Failed to send live email via SMTP to %s: %v. Falling back to console log.", toEmail, err)
-		} else {
-			log.Printf("[Email OTP Live] Successfully dispatched OTP email to %s via %s", toEmail, s.cfg.SMTPHost)
-			return nil
-		}
+	msg := s.buildRFC5322HTMLMessage(toEmail, subject, htmlBody)
+	if s.deliverMIME(toEmail, msg) {
+		return nil
 	}
 
 	// Development / Fallback mode logging
@@ -107,11 +172,7 @@ func (s *EmailService) SendWelcomeEmail(toEmail, userName string) error {
     </div>`
 	}
 
-	body := fmt.Sprintf(`Subject: %s
-MIME-Version: 1.0
-Content-Type: text/html; charset="UTF-8"
-
-<!DOCTYPE html>
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -131,7 +192,7 @@ Content-Type: text/html; charset="UTF-8"
         <li style="margin-bottom: 8px;"><strong>Handcrafted Coffee:</strong> Specialty espresso drinks, pour-overs, and cold brews roasted to perfection.</li>
         <li style="margin-bottom: 8px;"><strong>Artisanal Kitchen:</strong> Gourmet burgers, avocado toasts, and sourdough creations in Kisumu.</li>
         <li style="margin-bottom: 8px;"><strong>Community Activities:</strong> Sunday painting sessions, workshops, and cafe gatherings.</li>
-        <li><strong>Real-Time Tracking:</strong> Follow your orders from our kitchen to your doorstep live.</li>
+        <li><strong>Real-Time Tracking:</strong> Follow your orders from our doorstep live.</li>
       </ul>
     </div>
 
@@ -151,20 +212,11 @@ Content-Type: text/html; charset="UTF-8"
     </p>
   </div>
 </body>
-</html>
-`, subject, logoImgTag, userName)
+</html>`, logoImgTag, userName)
 
-	// If SMTP is fully configured, attempt live dispatch
-	if s.cfg.SMTPPassword != "" && s.cfg.SMTPUser != "" {
-		auth := smtp.PlainAuth("", s.cfg.SMTPUser, s.cfg.SMTPPassword, s.cfg.SMTPHost)
-		addr := fmt.Sprintf("%s:%d", s.cfg.SMTPHost, s.cfg.SMTPPort)
-		err := smtp.SendMail(addr, auth, s.cfg.OTPSenderEmail, []string{toEmail}, []byte(body))
-		if err != nil {
-			log.Printf("[Welcome Email Error] Failed to send live email via SMTP to %s: %v. Falling back to console log.", toEmail, err)
-		} else {
-			log.Printf("[Welcome Email Live] Successfully dispatched welcome email with logo to %s via %s", toEmail, s.cfg.SMTPHost)
-			return nil
-		}
+	msg := s.buildRFC5322HTMLMessage(toEmail, subject, htmlBody)
+	if s.deliverMIME(toEmail, msg) {
+		return nil
 	}
 
 	// Development / Fallback mode logging
@@ -174,4 +226,3 @@ Content-Type: text/html; charset="UTF-8"
 	log.Printf("==================================================================")
 	return nil
 }
-
