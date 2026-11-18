@@ -21,8 +21,8 @@ func SeedDatabase(ctx context.Context, pool *pgxpool.Pool) error {
 	userQueries := `
 		INSERT INTO users (id, name, initials, phone, email, role, dob, created_at, updated_at)
 		VALUES 
-		('usr-admin', 'Little Polo Cafe Owner', 'LPC', '+254704769219', $1, 'admin', '01/01/1990', NOW(), NOW()),
-		('usr-1', 'Michael Clay', 'MC', '+254 712 345 678', 'michaelclay2225@gmail.com', 'customer', '15/06/1998', NOW(), NOW())
+		('usr-admin', 'Little Polo Cafe Owner', 'LPC', '+254704769219', $1, 'admin', NULL, NOW(), NOW()),
+		('usr-1', 'Michael Clay', 'MC', '+254 712 345 678', 'michaelclay2225@gmail.com', 'customer', NULL, NOW(), NOW())
 		ON CONFLICT (id) DO NOTHING;
 	`
 	if _, err := pool.Exec(ctx, userQueries, adminEmail); err != nil {

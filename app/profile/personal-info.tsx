@@ -22,9 +22,13 @@ export default function PersonalInfoScreen() {
 
   const displayName = user?.name || 'Guest';
   const displayInitials = user?.initials || 'LP';
-  const displayEmail = user?.email || '—';
-  const displayPhone = user?.phone || '—';
-  const displayDob = user?.dob || '—';
+  const displayEmail = user?.email || '-';
+  const displayPhone = user?.phone && user.phone !== '—' ? user.phone : '-';
+  const rawDob = user?.dob?.trim();
+  const displayDob =
+    rawDob && rawDob !== '—' && rawDob !== '-' && rawDob !== '15/06/1998'
+      ? rawDob
+      : '-';
 
   const handleDeleteAccount = () => {
     setShowDeleteModal(true);

@@ -41,9 +41,9 @@ const emptyUserTemplate: UserProfile = {
   id: '',
   name: 'Guest',
   initials: 'LP',
-  phone: '—',
-  email: '—',
-  dob: '—',
+  phone: '-',
+  email: '-',
+  dob: '-',
   role: 'customer',
 };
 
@@ -99,14 +99,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = (userData?: Partial<UserProfile>, authToken?: string) => {
     const resolvedName = userData?.name || user?.name || 'Guest';
-    const resolvedEmail = userData?.email || user?.email || '—';
+    const resolvedEmail = userData?.email || user?.email || '-';
+    const rawDob = userData?.dob;
+    const resolvedDob =
+      rawDob && rawDob !== '—' && rawDob !== '-' && rawDob !== '15/06/1998'
+        ? rawDob
+        : '-';
     const mergedUser: UserProfile = {
       ...emptyUserTemplate,
       ...userData,
       name: resolvedName,
       email: resolvedEmail,
-      phone: userData?.phone || user?.phone || '—',
-      dob: userData?.dob || user?.dob || '—',
+      phone: userData?.phone || user?.phone || '-',
+      dob: resolvedDob,
       initials:
         userData?.initials || computeInitialsFromName(resolvedName, resolvedEmail),
     };

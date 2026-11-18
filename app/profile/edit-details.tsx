@@ -46,7 +46,14 @@ export default function EditPersonalDetailsScreen() {
   const [lastName, setLastName] = useState(nameParts.slice(1).join(' ') || '');
   const [email, setEmail] = useState(user?.email === '—' ? '' : user?.email || '');
   const [phone, setPhone] = useState(user?.phone === '—' ? '' : user?.phone || '');
-  const [dob, setDob] = useState(user?.dob === '—' ? '' : user?.dob || '');
+  const initialDob =
+    user?.dob &&
+    user.dob !== '—' &&
+    user.dob !== '-' &&
+    user.dob !== '15/06/1998'
+      ? user.dob
+      : '';
+  const [dob, setDob] = useState(initialDob);
 
   // Input Editability states
   const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -59,31 +66,31 @@ export default function EditPersonalDetailsScreen() {
   const [isCalendarModalVisible, setIsCalendarModalVisible] = useState(false);
   const [isLockModalVisible, setIsLockModalVisible] = useState(false);
 
-  // Parsed date components
+  // Parsed date components (blank until user sets a date)
   const parseCurrentDob = () => {
     if (dob && dob.includes('/')) {
       const [d, m, y] = dob.split('/');
       return {
         day: d.padStart(2, '0'),
         month: m.padStart(2, '0'),
-        year: y || '1998',
+        year: y || '',
       };
     }
-    return { day: '15', month: '06', year: '1998' };
+    return { day: '', month: '', year: '' };
   };
 
   const currentParsed = parseCurrentDob();
-  const [selectedDay, setSelectedDay] = useState(currentParsed.day);
-  const [selectedMonth, setSelectedMonth] = useState(currentParsed.month);
-  const [selectedYear, setSelectedYear] = useState(currentParsed.year);
+  const [selectedDay, setSelectedDay] = useState(currentParsed.day || '01');
+  const [selectedMonth, setSelectedMonth] = useState(currentParsed.month || '01');
+  const [selectedYear, setSelectedYear] = useState(currentParsed.year || '2000');
 
   // For calendar view
-  const [calendarViewYear, setCalendarViewYear] = useState(parseInt(currentParsed.year, 10) || 1998);
-  const [calendarViewMonth, setCalendarViewMonth] = useState(parseInt(currentParsed.month, 10) || 6); // 1-12
+  const [calendarViewYear, setCalendarViewYear] = useState(parseInt(currentParsed.year, 10) || 2000);
+  const [calendarViewMonth, setCalendarViewMonth] = useState(parseInt(currentParsed.month, 10) || 1); // 1-12
   const [calendarSelectedDate, setCalendarSelectedDate] = useState({
-    day: parseInt(currentParsed.day, 10) || 15,
-    month: parseInt(currentParsed.month, 10) || 6,
-    year: parseInt(currentParsed.year, 10) || 1998,
+    day: parseInt(currentParsed.day, 10) || 1,
+    month: parseInt(currentParsed.month, 10) || 1,
+    year: parseInt(currentParsed.year, 10) || 2000,
   });
 
   // Tumbler Scroll References
@@ -95,13 +102,16 @@ export default function EditPersonalDetailsScreen() {
   useEffect(() => {
     if (isLockModalVisible) {
       const parsed = parseCurrentDob();
-      setSelectedDay(parsed.day);
-      setSelectedMonth(parsed.month);
-      setSelectedYear(parsed.year);
+      const d = parsed.day || '01';
+      const m = parsed.month || '01';
+      const y = parsed.year || '2000';
+      setSelectedDay(d);
+      setSelectedMonth(m);
+      setSelectedYear(y);
 
-      const dayIdx = Math.max(0, DAYS.indexOf(parsed.day));
-      const monthIdx = Math.max(0, MONTHS.indexOf(parsed.month));
-      const yearIdx = Math.max(0, YEARS.indexOf(parsed.year));
+      const dayIdx = Math.max(0, DAYS.indexOf(d));
+      const monthIdx = Math.max(0, MONTHS.indexOf(m));
+      const yearIdx = Math.max(0, YEARS.indexOf(y));
 
       setTimeout(() => {
         dayScrollRef.current?.scrollTo({ y: dayIdx * TUMBLER_ITEM_HEIGHT, animated: false });
@@ -115,9 +125,9 @@ export default function EditPersonalDetailsScreen() {
   useEffect(() => {
     if (isCalendarModalVisible) {
       const parsed = parseCurrentDob();
-      const y = parseInt(parsed.year, 10) || 1998;
-      const m = parseInt(parsed.month, 10) || 6;
-      const d = parseInt(parsed.day, 10) || 15;
+      const y = parseInt(parsed.year, 10) || 2000;
+      const m = parseInt(parsed.month, 10) || 1;
+      const d = parseInt(parsed.day, 10) || 1;
       setCalendarViewYear(y);
       setCalendarViewMonth(m);
       setCalendarSelectedDate({ day: d, month: m, year: y });
@@ -157,9 +167,9 @@ export default function EditPersonalDetailsScreen() {
     await updateProfile({
       name: fullName,
       initials,
-      phone: phone.trim() || '—',
-      email: email.trim() || '—',
-      dob: dob.trim() || '—',
+      phone: phone.trim() || '-',
+      email: email.trim() || '-',
+      dob: dob.trim() || '-',
     });
 
     setFeedbackModalState({
