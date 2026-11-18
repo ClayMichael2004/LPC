@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   Image,
   ScrollView,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -33,6 +34,31 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates?.height || 280);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollToField = (yOffset: number) => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: yOffset, animated: true });
+    }, 120);
+  };
 
   // Live real-time password comparison
   const isPasswordMismatch = confirmPassword.length > 0 && confirmPassword !== password;
@@ -139,7 +165,8 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       style={[styles.container, { paddingTop: Math.max(insets.top, 14) }]}
     >
       {/* Symmetrical Header */}
@@ -158,10 +185,15 @@ export default function RegisterScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+          {
+            paddingBottom:
+              Math.max(insets.bottom, 24) + (keyboardHeight > 0 ? keyboardHeight + 120 : 48),
+          },
         ]}
       >
         {/* Brand Logo & Title */}
@@ -241,6 +273,7 @@ export default function RegisterScreen() {
             <TextInput
               value={phone}
               onChangeText={setPhone}
+              onFocus={() => scrollToField(160)}
               placeholder="e.g. 0712 345 678"
               placeholderTextColor="#9CA3AF"
               keyboardType="phone-pad"
@@ -255,6 +288,7 @@ export default function RegisterScreen() {
             <TextInput
               value={password}
               onChangeText={setPassword}
+              onFocus={() => scrollToField(240)}
               placeholder="Choose a password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
@@ -289,6 +323,7 @@ export default function RegisterScreen() {
                 setConfirmPassword(t);
                 if (errorMessage) setErrorMessage(null);
               }}
+              onFocus={() => scrollToField(320)}
               placeholder="Re-enter your password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showConfirmPassword}
