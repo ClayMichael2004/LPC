@@ -90,6 +90,13 @@ func (r *testUserRepo) Update(ctx context.Context, u *domain.User) error {
 	r.users[u.ID] = u
 	return nil
 }
+func (r *testUserRepo) GetAll(ctx context.Context) ([]*domain.User, error) {
+	var list []*domain.User
+	for _, u := range r.users {
+		list = append(list, u)
+	}
+	return list, nil
+}
 
 type testOrderRepo struct {
 	orders   map[string]*domain.Order
@@ -245,12 +252,13 @@ func setupTestApp(t *testing.T) (*gin.Engine, *config.Config, *testOrderRepo) {
 	pricingService := service.NewPricingService(productRepo)
 	menuService := service.NewMenuService(productRepo, menuCache)
 	orderService := service.NewOrderService(orderRepo, pricingService, wsHub)
+	adminService := service.NewAdminService(userRepo, emailService, menuService, activityRepo)
 
 	handlers := &httptransport.Handlers{
 		AuthHandler:      httptransport.NewAuthHandler(authService, userRepo),
 		MenuHandler:      httptransport.NewMenuHandler(menuService),
 		OrderHandler:     httptransport.NewOrderHandler(orderService, pricingService),
-		AdminHandler:     httptransport.NewAdminHandler(orderService, menuService),
+		AdminHandler:     httptransport.NewAdminHandler(orderService, menuService, adminService),
 		ActivityHandler:  httptransport.NewActivityHandler(activityRepo),
 		WSHub:            wsHub,
 		RedisClient:      rdb,
@@ -641,4 +649,113 @@ func TestHTTP_RegisterAndCustomerLogin(t *testing.T) {
 	router.ServeHTTP(wBad, reqBad)
 
 	assert.Equal(t, http.StatusUnauthorized, wBad.Code)
+}
+
+func TestHTTP_AdminLogin2FAAndCommunications(t *testing.T) {
+	router, cfg, _ := setupTestApp(t)
+
+	// 1. Admin login on /api/v1/auth/login with admin credentials
+	loginReq := domain.LoginRequest{
+		Identifier: cfg.AdminEmail,
+		Password:   cfg.AdminPassword,
+	}
+	loginBytes, _ := json.Marshal(loginReq)
+
+	wLogin := httptest.NewRecorder()
+	reqLogin, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginBytes))
+	reqLogin.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wLogin, reqLogin)
+
+	assert.Equal(t, http.StatusOK, wLogin.Code)
+	var loginResp httptransport.Response
+	err := json.Unmarshal(wLogin.Body.Bytes(), &loginResp)
+	require.NoError(t, err)
+	dataMap := loginResp.Data.(map[string]interface{})
+	// Must require 2FA OTP!
+	assert.True(t, dataMap["requiresOtp"].(bool))
+	assert.Equal(t, domain.RoleAdmin, dataMap["role"].(string))
+	assert.Empty(t, dataMap["token"]) // No token issued before OTP verification
+
+	// 2. Request OTP for Admin via WhatsApp
+	otpReq := domain.OTPRequest{
+		Type:       "whatsapp",
+		Identifier: "+254704769219",
+	}
+	otpBytes, _ := json.Marshal(otpReq)
+	wOTP := httptest.NewRecorder()
+	reqOTP, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/otp/request", bytes.NewReader(otpBytes))
+	reqOTP.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wOTP, reqOTP)
+	assert.Equal(t, http.StatusOK, wOTP.Code)
+
+	// 3. Admin Login endpoint to get admin token for testing admin APIs:
+	adminLoginReq := domain.AdminLoginRequest{
+		Email:    cfg.AdminEmail,
+		Password: cfg.AdminPassword,
+	}
+	adminBytes, _ := json.Marshal(adminLoginReq)
+	wAdmin := httptest.NewRecorder()
+	reqAdmin, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/admin/login", bytes.NewReader(adminBytes))
+	reqAdmin.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wAdmin, reqAdmin)
+	assert.Equal(t, http.StatusOK, wAdmin.Code)
+
+	var adminResp httptransport.Response
+	_ = json.Unmarshal(wAdmin.Body.Bytes(), &adminResp)
+	adminData := adminResp.Data.(map[string]interface{})
+	adminToken := adminData["token"].(string)
+
+	// 4. Test Admin Orders with Search & Pagination
+	wOrders := httptest.NewRecorder()
+	reqOrders, _ := http.NewRequest(http.MethodGet, "/api/v1/admin/orders?page=1&limit=10", nil)
+	reqOrders.Header.Set("Authorization", "Bearer "+adminToken)
+	router.ServeHTTP(wOrders, reqOrders)
+	assert.Equal(t, http.StatusOK, wOrders.Code)
+	assert.Contains(t, wOrders.Body.String(), `"stats"`)
+
+	// 5. Test Audience Calculation for Bulk Communications
+	wAudience := httptest.NewRecorder()
+	reqAudience, _ := http.NewRequest(http.MethodGet, "/api/v1/admin/communications/audience?channel=email", nil)
+	reqAudience.Header.Set("Authorization", "Bearer "+adminToken)
+	router.ServeHTTP(wAudience, reqAudience)
+	assert.Equal(t, http.StatusOK, wAudience.Code)
+	assert.Contains(t, wAudience.Body.String(), `"channel":"email"`)
+
+	// 6. Test Sending Broadcast Communication
+	bcastReq := domain.SendBroadcastRequest{
+		Channel: "email",
+		Subject: "Weekend Cold Brew Special",
+		Message: "Enjoy 20% off all single-origin Kenyan cold brews this Saturday!",
+	}
+	bcastBytes, _ := json.Marshal(bcastReq)
+	wBcast := httptest.NewRecorder()
+	reqBcast, _ := http.NewRequest(http.MethodPost, "/api/v1/admin/communications/send", bytes.NewReader(bcastBytes))
+	reqBcast.Header.Set("Authorization", "Bearer "+adminToken)
+	reqBcast.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wBcast, reqBcast)
+	assert.Equal(t, http.StatusOK, wBcast.Code)
+	assert.Contains(t, wBcast.Body.String(), "Weekend Cold Brew Special")
+
+	// 7. Test Admin Broadcast Logs
+	wLogs := httptest.NewRecorder()
+	reqLogs, _ := http.NewRequest(http.MethodGet, "/api/v1/admin/communications/logs", nil)
+	reqLogs.Header.Set("Authorization", "Bearer "+adminToken)
+	router.ServeHTTP(wLogs, reqLogs)
+	assert.Equal(t, http.StatusOK, wLogs.Code)
+	assert.Contains(t, wLogs.Body.String(), "Weekend Cold Brew Special")
+
+	// 8. Test Admin Notifications
+	wNotif := httptest.NewRecorder()
+	reqNotif, _ := http.NewRequest(http.MethodGet, "/api/v1/admin/notifications", nil)
+	reqNotif.Header.Set("Authorization", "Bearer "+adminToken)
+	router.ServeHTTP(wNotif, reqNotif)
+	assert.Equal(t, http.StatusOK, wNotif.Code)
+	assert.Contains(t, wNotif.Body.String(), "Broadcast Sent")
+
+	// 9. Test Public & Admin Specials
+	wSpecials := httptest.NewRecorder()
+	reqSpecials, _ := http.NewRequest(http.MethodGet, "/api/v1/menu/specials", nil)
+	router.ServeHTTP(wSpecials, reqSpecials)
+	assert.Equal(t, http.StatusOK, wSpecials.Code)
+	assert.Contains(t, wSpecials.Body.String(), "18-Hour Cold Brews")
 }

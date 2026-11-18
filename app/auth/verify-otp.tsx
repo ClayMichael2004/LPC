@@ -66,8 +66,9 @@ export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{
     channel?: 'email' | 'whatsapp' | 'sms';
     destination?: string;
+    from?: string;
   }>();
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
 
   const channel =
     params.channel === 'whatsapp' || params.channel === 'sms'
@@ -216,6 +217,13 @@ export default function VerifyOtpScreen() {
         await setAuthToken(authResp.token);
       }
       setIsVerifying(false);
+
+      if (params.from === 'admin_login' || (authResp?.user && authResp.user.role === 'admin')) {
+        signIn(authResp.user, authResp.token);
+        router.replace('/(tabs)/home');
+        return;
+      }
+
       router.replace({
         pathname: '/auth/reset-password',
         params: {

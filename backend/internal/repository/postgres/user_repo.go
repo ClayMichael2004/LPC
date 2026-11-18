@@ -166,3 +166,40 @@ func (r *UserRepository) Update(ctx context.Context, u *domain.User) error {
 	u.UpdatedAt = domain.ToEAT(now)
 	return nil
 }
+
+func (r *UserRepository) GetAll(ctx context.Context) ([]*domain.User, error) {
+	query := `
+		SELECT id, name, initials, phone, email, COALESCE(password_hash, ''), role, dob, created_at, updated_at
+		FROM users
+		ORDER BY created_at DESC
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		var u domain.User
+		var createdAt, updatedAt time.Time
+		if err := rows.Scan(
+			&u.ID,
+			&u.Name,
+			&u.Initials,
+			&u.Phone,
+			&u.Email,
+			&u.PasswordHash,
+			&u.Role,
+			&u.DateOfBirth,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return nil, err
+		}
+		u.CreatedAt = domain.ToEAT(createdAt)
+		u.UpdatedAt = domain.ToEAT(updatedAt)
+		users = append(users, &u)
+	}
+	return users, nil
+}

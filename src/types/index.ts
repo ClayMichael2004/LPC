@@ -143,3 +143,65 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface SpecialPromo {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  iconName: string;
+  badge: string;
+  tintColor: string;
+  iconColor: string;
+  isActive?: boolean;
+}
+
+export interface GalleryPhoto {
+  id: string;
+  source: any;
+  label: string;
+  createdAt?: string;
+}
+
+export interface BroadcastRecipient {
+  userId: string;
+  name: string;
+  target: string;
+  status: string;
+}
+
+export interface BroadcastLog {
+  id: string;
+  channel: 'email' | 'whatsapp';
+  subject: string;
+  message: string;
+  sentAt: string;
+  totalSent: number;
+  recipients: BroadcastRecipient[];
+}
+
+export interface AdminNotification {
+  id: string;
+  type: 'broadcast' | 'registration' | 'order' | 'system';
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export interface AdminOrdersResponse {
+  orders: Order[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  stats: {
+    totalOrders: number;
+    totalRevenueKES: number;
+    pendingOrders: number;
+    preparingOrders: number;
+    activeCouriers: number;
+    completedOrders: number;
+    cancelledOrders: number;
+  };
+}

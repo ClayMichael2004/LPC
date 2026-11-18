@@ -2,14 +2,19 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import {
+  AdminNotification,
+  AdminOrdersResponse,
+  BroadcastLog,
   Category,
   DeliveryInfo,
+  GalleryPhoto,
   Order,
   OrderItemInput,
   OrderStatus,
   OrderTracking,
   PriceSummary,
   Product,
+  SpecialPromo,
   UserProfile,
 } from '../types';
 
@@ -220,6 +225,16 @@ export interface AuthResponsePayload {
   user: UserProfile;
 }
 
+export interface AdminLoginOtpPrompt {
+  requiresOtp: true;
+  role: 'admin';
+  email: string;
+  phone: string;
+  message: string;
+}
+
+export type LoginResult = (AuthResponsePayload & { requiresOtp?: false }) | AdminLoginOtpPrompt;
+
 export const authApi = {
   register: (payload: {
     name: string;
@@ -233,7 +248,7 @@ export const authApi = {
     }),
 
   login: (identifier: string, password: string) =>
-    apiRequest<AuthResponsePayload>('/auth/login', {
+    apiRequest<LoginResult>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ identifier, password }),
     }),
@@ -360,6 +375,16 @@ export const adminApi = {
       method: 'GET',
     }),
 
+  getOrders: (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.append('page', String(params.page));
+    if (params?.limit) q.append('limit', String(params.limit));
+    if (params?.status) q.append('status', params.status);
+    if (params?.search) q.append('search', params.search);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return apiRequest<AdminOrdersResponse>(`/admin/orders${qs}`, { method: 'GET' });
+  },
+
   updateOrderStatus: (orderId: string, status: OrderStatus) =>
     apiRequest<Order>(`/admin/orders/${orderId}/status`, {
       method: 'PATCH',
@@ -406,5 +431,71 @@ export const adminApi = {
   deleteProduct: (productId: string) =>
     apiRequest<{ message: string }>(`/admin/menu/products/${productId}`, {
       method: 'DELETE',
+    }),
+
+  getSpecials: () => apiRequest<SpecialPromo[]>('/menu/specials', { method: 'GET' }),
+
+  createSpecial: (promo: Partial<SpecialPromo>) =>
+    apiRequest<SpecialPromo>('/admin/menu/specials', {
+      method: 'POST',
+      body: JSON.stringify(promo),
+    }),
+
+  deleteSpecial: (id: string) =>
+    apiRequest<{ message: string }>(`/admin/menu/specials/${id}`, {
+      method: 'DELETE',
+    }),
+
+  getGallery: () => apiRequest<GalleryPhoto[]>('/activities/gallery', { method: 'GET' }),
+
+  addGalleryPhoto: (photo: { source: string; label: string }) =>
+    apiRequest<GalleryPhoto>('/admin/activities/gallery', {
+      method: 'POST',
+      body: JSON.stringify(photo),
+    }),
+
+  deleteGalleryPhoto: (id: string) =>
+    apiRequest<{ message: string }>(`/admin/activities/gallery/${id}`, {
+      method: 'DELETE',
+    }),
+
+  createActivity: (act: any) =>
+    apiRequest<any>('/admin/activities', {
+      method: 'POST',
+      body: JSON.stringify(act),
+    }),
+
+  updateActivity: (id: string, act: any) =>
+    apiRequest<any>(`/admin/activities/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(act),
+    }),
+
+  deleteActivity: (id: string) =>
+    apiRequest<{ message: string }>(`/admin/activities/${id}`, {
+      method: 'DELETE',
+    }),
+
+  getAudience: (channel: 'email' | 'whatsapp') =>
+    apiRequest<{ channel: string; count: number; recipients: Array<{ id: string; name: string; target: string }> }>(
+      `/admin/communications/audience?channel=${channel}`,
+      { method: 'GET' }
+    ),
+
+  sendBroadcast: (channel: 'email' | 'whatsapp', subject: string, message: string) =>
+    apiRequest<BroadcastLog>('/admin/communications/send', {
+      method: 'POST',
+      body: JSON.stringify({ channel, subject, message }),
+    }),
+
+  getBroadcastLogs: () =>
+    apiRequest<BroadcastLog[]>('/admin/communications/logs', { method: 'GET' }),
+
+  getNotifications: () =>
+    apiRequest<AdminNotification[]>('/admin/notifications', { method: 'GET' }),
+
+  markNotificationRead: (id: string) =>
+    apiRequest<{ message: string }>(`/admin/notifications/${id}/read`, {
+      method: 'PATCH',
     }),
 };

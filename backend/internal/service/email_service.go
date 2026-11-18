@@ -278,3 +278,51 @@ func (s *EmailService) SendPasswordResetConfirmationEmail(toEmail, userName stri
 	log.Printf("==================================================================")
 	return nil
 }
+
+// SendBroadcastEmail dispatches an announcement or seasonal update email to an opted-in customer.
+func (s *EmailService) SendBroadcastEmail(toEmail, userName, subject, messageContent string) error {
+	logoB64 := getLogoBase64()
+	logoImgTag := ""
+	if logoB64 != "" {
+		logoImgTag = fmt.Sprintf(`<div style="text-align: center; margin-bottom: 24px;">
+      <img src="data:image/png;base64,%s" alt="Little Polo Cafe" width="120" style="display: block; margin: 0 auto; max-width: 120px; height: auto;" />
+    </div>`, logoB64)
+	}
+
+	if strings.TrimSpace(userName) == "" {
+		userName = "Valued Guest"
+	}
+
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #F9FAFB; padding: 24px; color: #1F2937;">
+  <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #E5E7EB; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
+    %s
+    <h2 style="color: #691414; margin-top: 0; text-align: center; font-size: 22px;">%s</h2>
+    <p style="font-size: 15px; line-height: 24px; color: #374151;">
+      Hello <strong>%s</strong>,
+    </p>
+    <div style="font-size: 15px; line-height: 24px; color: #374151; white-space: pre-wrap; margin: 20px 0; background-color: #F8FAFC; border-left: 4px solid #DBEAFE; padding: 16px 20px; border-radius: 8px;">
+      %s
+    </div>
+    <div style="background-color: #DBEAFE; border-radius: 12px; padding: 16px; text-align: center; margin: 24px 0;">
+      <span style="font-size: 14px; font-weight: 600; color: #07345F;">Little Polo Cafe · Kisumu, Kenya</span>
+    </div>
+    <p style="font-size: 12px; color: #9CA3AF; line-height: 18px; text-align: center;">
+      You received this message because you opted in to email updates &amp; offers in your Little Polo Cafe account preferences. You can update your preferences anytime in the app.
+    </p>
+  </div>
+</body>
+</html>`, logoImgTag, subject, userName, messageContent)
+
+	msg := s.buildRFC5322HTMLMessage(toEmail, subject, htmlBody)
+	if s.deliverMIME(toEmail, msg) {
+		return nil
+	}
+
+	log.Printf("==================================================================")
+	log.Printf("[BROADCAST EMAIL] From: %s -> To: %s (User: %s)", s.cfg.OTPSenderEmail, toEmail, userName)
+	log.Printf("[SUBJECT]         %s", subject)
+	log.Printf("==================================================================")
+	return nil
+}

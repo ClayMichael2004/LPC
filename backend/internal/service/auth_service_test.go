@@ -56,6 +56,14 @@ func (m *mockUserStore) Update(ctx context.Context, u *domain.User) error {
 	return nil
 }
 
+func (m *mockUserStore) GetAll(ctx context.Context) ([]*domain.User, error) {
+	var list []*domain.User
+	for _, u := range m.users {
+		list = append(list, u)
+	}
+	return list, nil
+}
+
 func TestAuthService_PhoneOTPWorkflow(t *testing.T) {
 	cfg := config.Load()
 	cfg.Env = "test"

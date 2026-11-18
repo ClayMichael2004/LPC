@@ -11,6 +11,10 @@ interface CategoryContextType {
   categories: Category[];
   products: Product[];
   refreshMenu: () => Promise<void>;
+  addProduct: (product: Product) => void;
+  updateProduct: (product: Product) => void;
+  deleteProduct: (productId: string) => void;
+  addCategory: (category: Category) => void;
 }
 
 const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
@@ -35,6 +39,22 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
+  const addProduct = useCallback((newProd: Product) => {
+    setProducts((prev) => [newProd, ...prev]);
+  }, []);
+
+  const updateProduct = useCallback((updated: Product) => {
+    setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+  }, []);
+
+  const deleteProduct = useCallback((id: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const addCategory = useCallback((cat: Category) => {
+    setCategories((prev) => [...prev, cat]);
+  }, []);
+
   useEffect(() => {
     refreshMenu();
   }, [refreshMenu]);
@@ -53,6 +73,10 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         categories,
         products,
         refreshMenu,
+        addProduct,
+        updateProduct,
+        deleteProduct,
+        addCategory,
       }}
     >
       {children}

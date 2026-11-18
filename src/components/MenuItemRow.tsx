@@ -1,16 +1,24 @@
 import React from 'react';
 import { StyleSheet, View, Text, Image, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, Minus } from 'lucide-react-native';
+import { Plus, Minus, Pencil, Trash2 } from 'lucide-react-native';
 import { Product } from '../types';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { useCart } from '../context/CartContext';
 
 interface MenuItemRowProps {
   product: Product;
+  isAdmin?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export default function MenuItemRow({ product }: MenuItemRowProps) {
+export default function MenuItemRow({
+  product,
+  isAdmin = false,
+  onEdit,
+  onDelete,
+}: MenuItemRowProps) {
   const router = useRouter();
   const { getItemQuantity, items, incrementItem, decrementItem, addToCart } = useCart();
 
@@ -71,7 +79,28 @@ export default function MenuItemRow({ product }: MenuItemRowProps) {
       </Pressable>
 
       <View style={styles.actionBox}>
-        {quantity > 0 ? (
+        {isAdmin ? (
+          <View style={styles.adminActionRow}>
+            <Pressable
+              onPress={onEdit}
+              style={styles.adminEditBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${product.name}`}
+            >
+              <Pencil size={15} color="#07345F" strokeWidth={2.4} />
+            </Pressable>
+            <Pressable
+              onPress={onDelete}
+              style={styles.adminDeleteBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Delete ${product.name}`}
+            >
+              <Trash2 size={15} color="#DC2626" strokeWidth={2.4} />
+            </Pressable>
+          </View>
+        ) : quantity > 0 ? (
           /* Quantity Pill Stepper (Red Pill border) */
           <View style={styles.stepperPill}>
             <Pressable
@@ -202,5 +231,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.heading,
     marginHorizontal: 8,
+  },
+  adminActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  adminEditBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminDeleteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

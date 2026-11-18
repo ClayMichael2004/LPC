@@ -1,7 +1,7 @@
 import React, { ComponentProps } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Tabs } from 'expo-router';
-import { House, Search, Palette, ShoppingBag, CircleUserRound } from 'lucide-react-native';
+import { House, Search, Palette, ShoppingBag, CircleUserRound, ClipboardList } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT_SIZE, FONTS, SHADOW, SPACING } from '../constants/theme';
 import { useCart } from '../context/CartContext';
@@ -13,7 +13,8 @@ type BottomNavProps = Parameters<TabBarRenderer>[0];
 export default function BottomNav({ state, descriptors, navigation }: BottomNavProps) {
   const insets = useSafeAreaInsets();
   const { totalCount } = useCart();
-  const { isAuthenticated, showSignInModal } = useAuth();
+  const { isAuthenticated, showSignInModal, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   return (
     <View style={[styles.wrapper, { bottom: Math.max(insets.bottom, 14) }]}>
@@ -26,7 +27,7 @@ export default function BottomNav({ state, descriptors, navigation }: BottomNavP
           if (route.name === 'home') label = 'Home';
           else if (route.name === 'menu') label = 'Menu';
           else if (route.name === 'activities') label = 'Activities';
-          else if (route.name === 'cart') label = 'Cart';
+          else if (route.name === 'cart') label = isAdmin ? 'Records' : 'Cart';
           else if (route.name === 'profile') label = isAuthenticated ? 'Profile' : 'Sign In';
 
           const onPress = () => {
@@ -65,14 +66,18 @@ export default function BottomNav({ state, descriptors, navigation }: BottomNavP
                 {route.name === 'menu' && <Search size={22} color={iconColor} strokeWidth={2.3} />}
                 {route.name === 'activities' && <Palette size={22} color={iconColor} strokeWidth={2} />}
                 {route.name === 'cart' && (
-                  <View style={styles.cartIconWrapper}>
-                    <ShoppingBag size={22} color={iconColor} strokeWidth={2} />
-                    {totalCount > 0 && (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{totalCount}</Text>
-                      </View>
-                    )}
-                  </View>
+                  isAdmin ? (
+                    <ClipboardList size={22} color={iconColor} strokeWidth={2.2} />
+                  ) : (
+                    <View style={styles.cartIconWrapper}>
+                      <ShoppingBag size={22} color={iconColor} strokeWidth={2} />
+                      {totalCount > 0 && (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{totalCount}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )
                 )}
                 {route.name === 'profile' && (
                   <CircleUserRound size={22} color={iconColor} strokeWidth={2} />

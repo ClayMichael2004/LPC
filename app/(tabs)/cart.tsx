@@ -14,12 +14,22 @@ import AppHeader from '../../src/components/AppHeader';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useCart } from '../../src/context/CartContext';
 import { useAuth } from '../../src/context/AuthContext';
+import AdminRecordsDashboard from '../../src/components/AdminRecordsDashboard';
 
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { items, incrementItem, decrementItem, subtotal, totalCount } = useCart();
-  const { isAuthenticated, showSignInModal } = useAuth();
+  const { isAuthenticated, showSignInModal, user } = useAuth();
+
+  if (user?.role === 'admin') {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <AppHeader />
+        <AdminRecordsDashboard />
+      </View>
+    );
+  }
 
   const handleCheckout = () => {
     if (!isAuthenticated) {

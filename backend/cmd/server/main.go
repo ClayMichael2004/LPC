@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/littlepolocafe/backend/internal/config"
+	"github.com/littlepolocafe/backend/internal/domain"
 	"github.com/littlepolocafe/backend/internal/repository/memory"
 	"github.com/littlepolocafe/backend/internal/repository/postgres"
 	"github.com/littlepolocafe/backend/internal/repository/redis"
@@ -115,12 +117,21 @@ func main() {
 	pricingService := service.NewPricingService(productCatalog)
 	menuService := service.NewMenuService(productCatalog, menuCache)
 	orderService := service.NewOrderService(orderRepo, pricingService, wsHub)
+	adminService := service.NewAdminService(userRepo, emailService, menuService, activityReader)
+
+	// Operational notifications triggers
+	authService.SetOnNewRegistration(func(u *domain.User) {
+		adminService.AddOperationalNotification("registration", "New Customer Registered", fmt.Sprintf("%s (%s) joined Little Polo Cafe", u.Name, u.Email))
+	})
+	orderService.SetOnNewOrder(func(o *domain.Order) {
+		adminService.AddOperationalNotification("order", fmt.Sprintf("New Order #%s", o.ID), fmt.Sprintf("Order placed for KES %.0f (%d items) to %s", o.Total, len(o.Items), o.DeliveryInfo.AddressName))
+	})
 
 	// 7. Initialize Handlers
 	authHandler := httptransport.NewAuthHandler(authService, userRepo)
 	menuHandler := httptransport.NewMenuHandler(menuService)
 	orderHandler := httptransport.NewOrderHandler(orderService, pricingService)
-	adminHandler := httptransport.NewAdminHandler(orderService, menuService)
+	adminHandler := httptransport.NewAdminHandler(orderService, menuService, adminService)
 	activityHandler := httptransport.NewActivityHandler(activityReader)
 
 	handlers := &httptransport.Handlers{

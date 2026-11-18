@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,25 +10,40 @@ import {
   Modal,
   Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, X, MessageCircle, ShieldCheck } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
+import { useAuth } from '../../src/context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - SPACING.lg * 2 - GRID_GAP) / 2;
 
-export const ALL_GALLERY_PHOTOS = [
-  { id: '1', source: require('../../assets/activities/painting-1.jpg'), label: 'Coloring the Sketch' },
-  { id: '2', source: require('../../assets/activities/painting-2.jpg'), label: 'Young Artist in Action' },
-  { id: '3', source: require('../../assets/activities/painting-3.jpg'), label: 'Sunday Garden Session' },
-  { id: '4', source: require('../../assets/activities/painting-4.jpg'), label: 'Oil Paints & Palette' },
-  { id: '5', source: require('../../assets/activities/painting-5.jpg'), label: 'Canvas Work in Progress' },
-  { id: '6', source: require('../../assets/activities/painting-6.jpg'), label: 'Family Joy & Creativity' },
-  { id: '7', source: require('../../assets/activities/painting-7.jpg'), label: 'Detailed Brushwork' },
-  { id: '8', source: require('../../assets/activities/painting-8.jpg'), label: 'Masterpiece Complete' },
+const PRESET_GALLERY_IMAGES = [
+  require('../../assets/activities/painting-1.jpg'),
+  require('../../assets/activities/painting-2.jpg'),
+  require('../../assets/activities/painting-3.jpg'),
+  require('../../assets/activities/painting-4.jpg'),
+  require('../../assets/activities/painting-5.jpg'),
+  require('../../assets/activities/painting-6.jpg'),
+  require('../../assets/activities/painting-7.jpg'),
+  require('../../assets/activities/painting-8.jpg'),
 ];
+
+export const ALL_GALLERY_PHOTOS = [
+  { id: '1', source: PRESET_GALLERY_IMAGES[0], label: 'Coloring the Sketch' },
+  { id: '2', source: PRESET_GALLERY_IMAGES[1], label: 'Young Artist in Action' },
+  { id: '3', source: PRESET_GALLERY_IMAGES[2], label: 'Sunday Garden Session' },
+  { id: '4', source: PRESET_GALLERY_IMAGES[3], label: 'Oil Paints & Palette' },
+  { id: '5', source: PRESET_GALLERY_IMAGES[4], label: 'Canvas Work in Progress' },
+  { id: '6', source: PRESET_GALLERY_IMAGES[5], label: 'Family Joy & Creativity' },
+  { id: '7', source: PRESET_GALLERY_IMAGES[6], label: 'Detailed Brushwork' },
+  { id: '8', source: PRESET_GALLERY_IMAGES[7], label: 'Masterpiece Complete' },
+];
+
+const STORAGE_GALLERY_KEY = '@lpc_gallery_photos_v2';
 
 const WHATSAPP_NUMBER = '254704769219';
 const WHATSAPP_MESSAGE =
@@ -37,7 +52,36 @@ const WHATSAPP_MESSAGE =
 export default function ActivitiesGalleryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  const [photos, setPhotos] = useState<any[]>(ALL_GALLERY_PHOTOS);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_GALLERY_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const rehydrated = parsed.map((item: any) => {
+              if (item.presetIndex !== undefined && PRESET_GALLERY_IMAGES[item.presetIndex]) {
+                return { ...item, source: PRESET_GALLERY_IMAGES[item.presetIndex] };
+              }
+              if (item.uri) {
+                return { ...item, source: { uri: item.uri } };
+              }
+              return item;
+            });
+            setPhotos(rehydrated);
+          }
+        }
+      } catch {
+        // Keep defaults
+      }
+    })();
+  }, []);
 
   const handleBookViaWhatsApp = () => {
     Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`);
@@ -83,13 +127,13 @@ export default function ActivitiesGalleryScreen() {
             Tap any photo to expand. Held Sundays 12–2 PM.
           </Text>
           <View style={styles.countBadge}>
-            <Text style={styles.countText}>{ALL_GALLERY_PHOTOS.length} Photos</Text>
+            <Text style={styles.countText}>{photos.length} Photos</Text>
           </View>
         </View>
 
         {/* Full 2-Column Photo Grid */}
         <View style={styles.photoGrid}>
-          {ALL_GALLERY_PHOTOS.map((item) => (
+          {photos.map((item) => (
             <Pressable
               key={item.id}
               style={styles.photoCard}
@@ -107,28 +151,30 @@ export default function ActivitiesGalleryScreen() {
           ))}
         </View>
 
-        {/* WhatsApp Booking Card */}
-        <View style={styles.ctaCard}>
-          <Text style={styles.ctaTitle}>Book Sunday Painting</Text>
-          <Text style={styles.ctaSubtitle}>
-            Reserve materials and a spot for your child.
-          </Text>
+        {/* WhatsApp Booking Card: Hidden for admin */}
+        {!isAdmin && (
+          <View style={styles.ctaCard}>
+            <Text style={styles.ctaTitle}>Book Sunday Painting</Text>
+            <Text style={styles.ctaSubtitle}>
+              Reserve materials and a spot for your child.
+            </Text>
 
-          <Pressable
-            style={styles.whatsappButton}
-            onPress={handleBookViaWhatsApp}
-            accessibilityRole="button"
-            accessibilityLabel="Book an Appointment via WhatsApp"
-          >
-            <MessageCircle size={22} color={COLORS.white} strokeWidth={2.4} style={styles.waIcon} />
-            <Text style={styles.whatsappButtonText}>Book via WhatsApp</Text>
-          </Pressable>
+            <Pressable
+              style={styles.whatsappButton}
+              onPress={handleBookViaWhatsApp}
+              accessibilityRole="button"
+              accessibilityLabel="Book an Appointment via WhatsApp"
+            >
+              <MessageCircle size={22} color={COLORS.white} strokeWidth={2.4} style={styles.waIcon} />
+              <Text style={styles.whatsappButtonText}>Book via WhatsApp</Text>
+            </Pressable>
 
-          <View style={styles.ctaFooterRow}>
-            <ShieldCheck size={14} color={COLORS.textSecondary} strokeWidth={2} />
-            <Text style={styles.ctaFooterText}>WhatsApp +254 704 769 219</Text>
+            <View style={styles.ctaFooterRow}>
+              <ShieldCheck size={14} color={COLORS.textSecondary} strokeWidth={2} />
+              <Text style={styles.ctaFooterText}>WhatsApp +254 704 769 219</Text>
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
 
       {/* Fullscreen Photo Viewer Modal */}

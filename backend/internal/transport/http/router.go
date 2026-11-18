@@ -75,6 +75,7 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		{
 			menuGroup.GET("", h.MenuHandler.GetFullMenu)
 			menuGroup.GET("/promos", h.MenuHandler.GetPromoBanners)
+			menuGroup.GET("/specials", h.AdminHandler.GetSpecials)
 			menuGroup.GET("/products/:id", h.MenuHandler.GetProduct)
 		}
 
@@ -82,6 +83,7 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		activitiesGroup := api.Group("/activities")
 		{
 			activitiesGroup.GET("", h.ActivityHandler.GetActivities)
+			activitiesGroup.GET("/gallery", h.AdminHandler.GetGallery)
 			activitiesGroup.GET("/:id", h.ActivityHandler.GetActivity)
 		}
 
@@ -130,6 +132,26 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 			adminGroup.PATCH("/menu/products/:id/stock", h.AdminHandler.UpdateStock)
 			adminGroup.POST("/menu/products", h.AdminHandler.CreateProduct)
 			adminGroup.DELETE("/menu/products/:id", h.AdminHandler.DeleteProduct)
+
+			// Admin Specials & Features
+			adminGroup.POST("/menu/specials", h.AdminHandler.CreateSpecial)
+			adminGroup.DELETE("/menu/specials/:id", h.AdminHandler.DeleteSpecial)
+
+			// Admin Activities & Gallery
+			adminGroup.POST("/activities", h.AdminHandler.CreateActivity)
+			adminGroup.PUT("/activities/:id", h.AdminHandler.UpdateActivity)
+			adminGroup.DELETE("/activities/:id", h.AdminHandler.DeleteActivity)
+			adminGroup.POST("/activities/gallery", h.AdminHandler.AddGalleryPhoto)
+			adminGroup.DELETE("/activities/gallery/:id", h.AdminHandler.DeleteGalleryPhoto)
+
+			// Admin Bulk Communications
+			adminGroup.GET("/communications/audience", h.AdminHandler.GetAudience)
+			adminGroup.POST("/communications/send", h.AdminHandler.SendBroadcast)
+			adminGroup.GET("/communications/logs", h.AdminHandler.GetBroadcastLogs)
+
+			// Admin Operational Notifications
+			adminGroup.GET("/notifications", h.AdminHandler.GetAdminNotifications)
+			adminGroup.PATCH("/notifications/:id/read", h.AdminHandler.MarkNotificationRead)
 		}
 	}
 

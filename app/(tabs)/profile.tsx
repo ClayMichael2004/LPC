@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Pressable, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,14 +9,31 @@ import {
   ChevronRight,
   Bell,
   Pencil,
+  Megaphone,
 } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
+import { adminApi } from '../../src/services/api';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, signOut, isAuthenticated, showSignInModal } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const [unreadAdminNotifs, setUnreadAdminNotifs] = useState(0);
+
+  useEffect(() => {
+    if (isAdmin) {
+      adminApi
+        .getNotifications()
+        .then((list) => {
+          if (Array.isArray(list)) {
+            setUnreadAdminNotifs(list.filter((n) => !n.read).length);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAdmin]);
 
   const displayName = isAuthenticated && user ? user.name : 'Guest';
   const displayInitials = isAuthenticated && user ? user.initials : 'LP';
@@ -66,7 +83,7 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
 
-          {/* Bell Icon */}
+          {/* Bell Icon with operational notification indicator for admin */}
           <Pressable
             style={styles.bellBtn}
             onPress={() => router.push('/notifications')}
@@ -75,26 +92,49 @@ export default function ProfileScreen() {
             accessibilityLabel="Notifications"
           >
             <Bell size={24} color={COLORS.heading} strokeWidth={2} />
+            {isAdmin && unreadAdminNotifs > 0 && (
+              <View style={styles.bellBadgeDot} />
+            )}
           </Pressable>
         </View>
 
-        {/* Card 1: Order history & Communication preferences */}
+        {/* Card 1: Communications (Admin) or Order history (Customer) & Communication preferences */}
         <View style={styles.groupCard}>
-          {/* Row 1: Order history */}
-          <Pressable
-            style={styles.menuRow}
-            onPress={() => router.push('/profile/orders')}
-            accessibilityRole="button"
-            accessibilityLabel="Order history"
-          >
-            <View style={styles.rowLeft}>
-              <View style={styles.iconCircle}>
-                <Clock size={20} color={COLORS.primary} strokeWidth={2.2} />
+          {/* Row 1: Communications for Admin, Order history for Customer */}
+          {isAdmin ? (
+            <Pressable
+              style={styles.menuRow}
+              onPress={() => router.push('/profile/communication-hub')}
+              accessibilityRole="button"
+              accessibilityLabel="Communications"
+            >
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <Megaphone size={20} color={COLORS.primary} strokeWidth={2.2} />
+                </View>
+                <View>
+                  <Text style={styles.rowTitle}>Communications</Text>
+                  <Text style={styles.rowSubtitle}>Broadcast announcements to customers</Text>
+                </View>
               </View>
-              <Text style={styles.rowTitle}>Order history</Text>
-            </View>
-            <ChevronRight size={20} color="#6B7280" strokeWidth={2} />
-          </Pressable>
+              <ChevronRight size={20} color="#6B7280" strokeWidth={2} />
+            </Pressable>
+          ) : (
+            <Pressable
+              style={styles.menuRow}
+              onPress={() => router.push('/profile/orders')}
+              accessibilityRole="button"
+              accessibilityLabel="Order history"
+            >
+              <View style={styles.rowLeft}>
+                <View style={styles.iconCircle}>
+                  <Clock size={20} color={COLORS.primary} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.rowTitle}>Order history</Text>
+              </View>
+              <ChevronRight size={20} color="#6B7280" strokeWidth={2} />
+            </Pressable>
+          )}
 
           <View style={styles.rowDivider} />
 
@@ -141,19 +181,21 @@ export default function ProfileScreen() {
             >
               <View style={styles.rowLeft}>
                 <View style={styles.iconCircle}>
-                  <LogOut size={20} color={COLORS.primary} strokeWidth={2.2} style={{ transform: [{ rotate: '180deg' }] }} />
+                  <LogOut size={20} color={COLORS.primary} strokeWidth={2.2} />
                 </View>
-                <Text style={styles.rowTitle}>Sign in to your account</Text>
+                <Text style={styles.rowTitle}>Sign in</Text>
               </View>
               <ChevronRight size={20} color="#6B7280" strokeWidth={2} />
             </Pressable>
           )}
         </View>
 
-        {/* Footer Brand Copyright */}
+        {/* Footer Brand Info */}
         <View style={styles.footerBox}>
-          <Text style={styles.copyrightText}>Copyright © Little Polo Cafe. 2026</Text>
-          <Text style={styles.versionText}>v1.0.0 (282)</Text>
+          <Text style={styles.copyrightText}>Little Polo Cafe</Text>
+          <Text style={styles.versionText}>
+            {isAdmin ? 'Admin Management Mode · v1.0.0' : 'Artisanal Cafe & Bakery · v1.0.0'}
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -163,40 +205,40 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
-    paddingTop: SPACING.sm,
+    marginBottom: SPACING.xl,
   },
   avatarCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: COLORS.primary,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
-    overflow: 'hidden',
+    ...SHADOW.soft,
   },
   avatarCircleGuest: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
   avatarLogoImage: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 38,
+    height: 38,
   },
   avatarText: {
     fontFamily: FONTS.bold,
     fontSize: 22,
     color: COLORS.white,
-    letterSpacing: 0.5,
   },
   userInfoCol: {
     flex: 1,
@@ -224,6 +266,16 @@ const styles = StyleSheet.create({
   },
   bellBtn: {
     padding: 6,
+    position: 'relative',
+  },
+  bellBadgeDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
   groupCard: {
     backgroundColor: COLORS.white,
@@ -244,6 +296,7 @@ const styles = StyleSheet.create({
   rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   iconCircle: {
     marginRight: SPACING.md,
@@ -252,6 +305,12 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semibold,
     fontSize: 15,
     color: COLORS.heading,
+  },
+  rowSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 1,
   },
   rowDivider: {
     height: 1,

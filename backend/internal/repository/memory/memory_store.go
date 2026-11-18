@@ -105,6 +105,17 @@ func (r *MemoryUserRepo) Update(ctx context.Context, u *domain.User) error {
 	return nil
 }
 
+func (r *MemoryUserRepo) GetAll(ctx context.Context) ([]*domain.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var list []*domain.User
+	for _, u := range r.users {
+		copy := *u
+		list = append(list, &copy)
+	}
+	return list, nil
+}
+
 // MemoryProductRepo is a thread-safe in-memory product repository fallback.
 type MemoryProductRepo struct {
 	mu         sync.RWMutex

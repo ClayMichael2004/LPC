@@ -9,10 +9,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react-native';
+import { ChevronLeft, Mail, Lock, Eye, EyeOff, AlertCircle, ShieldCheck, MessageSquare } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import FeedbackModal from '../../src/components/FeedbackModal';
@@ -29,6 +30,17 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Admin 2FA Delivery Channel Selection Modal
+  const [adminOtpModal, setAdminOtpModal] = useState<{
+    visible: boolean;
+    email: string;
+    phone: string;
+  }>({
+    visible: false,
+    email: '',
+    phone: '',
+  });
 
   // In-app Google Auth / Notice Modal
   const [modalState, setModalState] = useState<{
@@ -63,14 +75,28 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const authResp = await authApi.login(identifier.trim(), password);
-      signIn(authResp.user, authResp.token);
-      setIsLoading(false);
 
-      // Route to checkout if referred from checkout, otherwise to home page
-      if (params.from === 'checkout') {
-        router.replace('/checkout/delivery');
-      } else {
-        router.replace('/(tabs)/home');
+      // Enforce 2FA OTP for Administrator Account
+      if ('requiresOtp' in authResp && authResp.requiresOtp) {
+        setIsLoading(false);
+        setAdminOtpModal({
+          visible: true,
+          email: authResp.email || 'mikewillmakeit2004@gmail.com',
+          phone: authResp.phone || '+254704769219',
+        });
+        return;
+      }
+
+      if ('user' in authResp && authResp.user) {
+        signIn(authResp.user, authResp.token);
+        setIsLoading(false);
+
+        // Route to checkout if referred from checkout, otherwise to home page
+        if (params.from === 'checkout') {
+          router.replace('/checkout/delivery');
+        } else {
+          router.replace('/(tabs)/home');
+        }
       }
     } catch (err) {
       setIsLoading(false);
@@ -79,6 +105,27 @@ export default function LoginScreen() {
         return;
       }
       setErrorMessage('Unable to sign in right now. Please check your connection and try again.');
+    }
+  };
+
+  const handleSelectAdminOtpChannel = async (channel: 'email' | 'whatsapp') => {
+    const destination = channel === 'email' ? adminOtpModal.email : adminOtpModal.phone;
+    setIsLoading(true);
+    setAdminOtpModal((s) => ({ ...s, visible: false }));
+    try {
+      await authApi.requestOtp(channel, destination);
+      setIsLoading(false);
+      router.push({
+        pathname: '/auth/verify-otp',
+        params: {
+          channel,
+          destination,
+          from: 'admin_login',
+        },
+      });
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err?.message || 'Failed to dispatch verification code. Please try again.');
     }
   };
 
@@ -252,6 +299,81 @@ export default function LoginScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Admin 2FA Delivery Selection Modal */}
+      <Modal
+        visible={adminOtpModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAdminOtpModal((s) => ({ ...s, visible: false }))}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.adminModalCard}>
+            <View style={styles.adminModalHeader}>
+              <View style={styles.shieldIconCircle}>
+                <ShieldCheck size={28} color="#07345F" strokeWidth={2.4} />
+              </View>
+              <Text style={styles.adminModalTitle}>Security Verification</Text>
+              <Text style={styles.adminModalSubtitle}>
+                As the cafe administrator, please choose where to receive your 4-digit sign-in code:
+              </Text>
+            </View>
+
+            <View style={styles.channelOptionsContainer}>
+              {/* Option 1: Email */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.channelCard,
+                  { backgroundColor: '#DBEAFE', borderColor: '#BFDBFE' },
+                  pressed && styles.channelCardPressed,
+                ]}
+                onPress={() => handleSelectAdminOtpChannel('email')}
+                accessibilityRole="button"
+                accessibilityLabel="Send OTP code via Email"
+              >
+                <View style={[styles.channelIconBox, { backgroundColor: '#FFFFFF' }]}>
+                  <Mail size={22} color="#07345F" strokeWidth={2.3} />
+                </View>
+                <View style={styles.channelInfo}>
+                  <Text style={[styles.channelTitle, { color: '#07345F' }]}>Send code via Email</Text>
+                  <Text style={styles.channelTarget} numberOfLines={1}>
+                    {adminOtpModal.email}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {/* Option 2: WhatsApp */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.channelCard,
+                  { backgroundColor: '#DCFCE7', borderColor: '#BBF7D0' },
+                  pressed && styles.channelCardPressed,
+                ]}
+                onPress={() => handleSelectAdminOtpChannel('whatsapp')}
+                accessibilityRole="button"
+                accessibilityLabel="Send OTP code via WhatsApp"
+              >
+                <View style={[styles.channelIconBox, { backgroundColor: '#FFFFFF' }]}>
+                  <MessageSquare size={22} color="#075B35" strokeWidth={2.3} />
+                </View>
+                <View style={styles.channelInfo}>
+                  <Text style={[styles.channelTitle, { color: '#075B35' }]}>Send code via WhatsApp</Text>
+                  <Text style={styles.channelTarget} numberOfLines={1}>
+                    {adminOtpModal.phone}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={styles.cancelBtn}
+              onPress={() => setAdminOtpModal((s) => ({ ...s, visible: false }))}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modern In-App Modal Dialog */}
       <FeedbackModal
@@ -467,5 +589,99 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  adminModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  adminModalHeader: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  shieldIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  adminModalTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 20,
+    color: COLORS.heading,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  adminModalSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  channelOptionsContainer: {
+    width: '100%',
+    gap: 12,
+    marginBottom: SPACING.md,
+  },
+  channelCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+  },
+  channelCardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  channelIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  channelInfo: {
+    flex: 1,
+  },
+  channelTitle: {
+    fontFamily: FONTS.semibold,
+    fontSize: 15,
+    marginBottom: 2,
+  },
+  channelTarget: {
+    fontFamily: FONTS.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  cancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 4,
+  },
+  cancelBtnText: {
+    fontFamily: FONTS.medium,
+    fontSize: 14,
+    color: '#6B7280',
   },
 });

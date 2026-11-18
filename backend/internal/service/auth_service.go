@@ -37,15 +37,17 @@ type UserStore interface {
 	GetByPhone(ctx context.Context, phone string) (*domain.User, error)
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
 	Update(ctx context.Context, u *domain.User) error
+	GetAll(ctx context.Context) ([]*domain.User, error)
 }
 
 type AuthService struct {
-	cfg            *config.Config
-	userRepo       UserStore
-	emailService   *EmailService
-	redisClient    *redisclient.Client
-	localOTP       sync.Map // Fallback in-memory OTP store
-	activeSessions sync.Map // userID -> active sessionID (single-device session enforcement)
+	cfg               *config.Config
+	userRepo          UserStore
+	emailService      *EmailService
+	redisClient       *redisclient.Client
+	localOTP          sync.Map // Fallback in-memory OTP store
+	activeSessions    sync.Map // userID -> active sessionID (single-device session enforcement)
+	onNewRegistration func(u *domain.User)
 }
 
 type otpItem struct {
@@ -206,7 +208,27 @@ func (s *AuthService) VerifyOTP(ctx context.Context, identifier, code, name stri
 		user, err = s.userRepo.GetByPhone(ctx, identifier)
 	}
 
-	if errors.Is(err, postgres.ErrUserNotFound) || user == nil {
+	isAdmin := strings.EqualFold(identifier, s.cfg.AdminEmail) || identifier == "+254704769219" || (user != nil && user.Role == domain.RoleAdmin)
+
+	if isAdmin {
+		if user == nil {
+			user, _ = s.userRepo.GetByEmail(ctx, s.cfg.AdminEmail)
+		}
+		if user == nil {
+			user = &domain.User{
+				ID:       "usr-admin",
+				Name:     "Cafe Administrator",
+				Initials: "CA",
+				Email:    s.cfg.AdminEmail,
+				Phone:    "+254704769219",
+				Role:     domain.RoleAdmin,
+			}
+			_ = s.userRepo.Create(ctx, user)
+		} else if user.Role != domain.RoleAdmin {
+			user.Role = domain.RoleAdmin
+			_ = s.userRepo.Update(ctx, user)
+		}
+	} else if errors.Is(err, postgres.ErrUserNotFound) || user == nil {
 		userName := name
 		if userName == "" {
 			if isEmail {
@@ -434,6 +456,10 @@ func (s *AuthService) Register(ctx context.Context, req domain.RegisterRequest) 
 		return nil, fmt.Errorf("failed to save user: %w", err)
 	}
 
+	if s.onNewRegistration != nil {
+		s.onNewRegistration(user)
+	}
+
 	// Dispatch welcome email with Little Polo Cafe logo asynchronously
 	go func() {
 		_ = s.emailService.SendWelcomeEmail(email, name)
@@ -442,8 +468,13 @@ func (s *AuthService) Register(ctx context.Context, req domain.RegisterRequest) 
 	return user, nil
 }
 
+func (s *AuthService) SetOnNewRegistration(cb func(u *domain.User)) {
+	s.onNewRegistration = cb
+}
+
 // CustomerLogin authenticates a customer using email or phone and password.
-func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password string) (*domain.AuthResponse, error) {
+// If the account is an administrator, it enforces 2FA: requiresOtp is true and no JWT is issued until OTP is verified.
+func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password string) (*domain.LoginResponse, error) {
 	identifier = strings.TrimSpace(identifier)
 	var user *domain.User
 	var err error
@@ -453,6 +484,53 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 		user, err = s.userRepo.GetByEmail(ctx, emailLower)
 	} else {
 		user, err = s.userRepo.GetByPhone(ctx, identifier)
+	}
+
+	// Check if this is an admin account attempting to sign in
+	isAdminAttempt := strings.EqualFold(identifier, s.cfg.AdminEmail) || (user != nil && user.Role == domain.RoleAdmin)
+
+	if isAdminAttempt {
+		adminPasswordValid := false
+		if strings.TrimSpace(password) == s.cfg.AdminPassword {
+			adminPasswordValid = true
+		} else if user != nil && user.PasswordHash != "" {
+			if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err == nil {
+				adminPasswordValid = true
+			}
+		}
+
+		if !adminPasswordValid {
+			return nil, ErrInvalidCredentials
+		}
+
+		// Valid admin credentials -> require 2FA OTP verification
+		if user == nil {
+			user = &domain.User{
+				ID:       "usr-admin",
+				Name:     "Cafe Administrator",
+				Initials: "CA",
+				Email:    s.cfg.AdminEmail,
+				Phone:    "+254704769219",
+				Role:     domain.RoleAdmin,
+			}
+			_ = s.userRepo.Create(ctx, user)
+		} else if user.Role != domain.RoleAdmin {
+			user.Role = domain.RoleAdmin
+			_ = s.userRepo.Update(ctx, user)
+		}
+
+		adminPhone := user.Phone
+		if adminPhone == "" {
+			adminPhone = "+254704769219"
+		}
+
+		return &domain.LoginResponse{
+			RequiresOTP: true,
+			Role:        domain.RoleAdmin,
+			Email:       user.Email,
+			Phone:       adminPhone,
+			Message:     "Administrator 2FA security code required. Choose email or WhatsApp to receive your code.",
+		}, nil
 	}
 
 	if err != nil || user == nil {
@@ -476,11 +554,11 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	return &domain.AuthResponse{
+	return &domain.LoginResponse{
 		Token:     token,
 		TokenType: "Bearer",
 		ExpiresIn: exp,
-		User:      *user,
+		User:      user,
 	}, nil
 }
 

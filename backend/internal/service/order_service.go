@@ -25,6 +25,7 @@ type OrderService struct {
 	orderRepo      OrderStore
 	pricingService *PricingService
 	wsHub          *websocket.Hub
+	onNewOrder     func(o *domain.Order)
 }
 
 func NewOrderService(
@@ -37,6 +38,10 @@ func NewOrderService(
 		pricingService: pricingService,
 		wsHub:          wsHub,
 	}
+}
+
+func (s *OrderService) SetOnNewOrder(cb func(o *domain.Order)) {
+	s.onNewOrder = cb
 }
 
 // CreateOrder enforces server-side pricing, executes an atomic ACID transaction in PostgreSQL,
@@ -83,6 +88,10 @@ func (s *OrderService) CreateOrder(
 		if err == nil {
 			s.wsHub.BroadcastOrderUpdate(order.ID, tracking)
 		}
+	}
+
+	if s.onNewOrder != nil {
+		s.onNewOrder(order)
 	}
 
 	return order, nil
