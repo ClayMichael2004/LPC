@@ -14,26 +14,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   Mail,
-  Smartphone,
-  Lock,
+  MessageCircle,
 } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
-import { useAuth } from '../../src/context/AuthContext';
 import RedSpinner from '../../src/components/RedSpinner';
 import FeedbackModal from '../../src/components/FeedbackModal';
-import { authApi } from '../../src/services/api';
-import { maskEmail, maskPhone } from './verify-otp';
+import { authApi, ApiError } from '../../src/services/api';
+import { maskEmail } from './verify-otp';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
 
-  const [email] = useState(user?.email || 'michaelclay2225@gmail.com');
-  const [phone] = useState(
-    user?.phone === '—' ? '+254 712 345 678' : user?.phone || '+254 712 345 678'
-  );
-  const [deliveryChannel, setDeliveryChannel] = useState<'email' | 'sms'>('email');
+  const [email, setEmail] = useState('');
+  const [deliveryChannel, setDeliveryChannel] = useState<'email' | 'whatsapp'>('email');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   const [feedbackState, setFeedbackState] = useState<{
@@ -51,38 +45,45 @@ export default function ForgotPasswordScreen() {
   });
 
   const handleSendOtp = async () => {
-    if (deliveryChannel === 'email' && !email.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
       setFeedbackState({
         visible: true,
         type: 'error',
         title: 'Email Required',
-        message: 'Please provide a valid email address to receive your OTP code.',
+        message: 'Please enter your registered email address to receive your OTP code.',
         onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
       });
       return;
     }
 
     setIsSendingOtp(true);
-    const destination = deliveryChannel === 'email' ? email.trim() : phone.trim();
-    const otpType = deliveryChannel === 'email' ? 'email' : 'phone';
+    const otpType = deliveryChannel === 'email' ? 'email' : 'whatsapp';
 
     try {
-      await authApi.requestOtp(otpType, destination);
-    } catch {
-      // Offline / local fallback
-    }
-
-    // Show spinner animation briefly, then open the dedicated Verify OTP screen
-    setTimeout(() => {
+      await authApi.requestOtp(otpType, trimmedEmail);
       setIsSendingOtp(false);
       router.push({
         pathname: '/auth/verify-otp',
         params: {
           channel: deliveryChannel,
-          destination,
+          destination: trimmedEmail,
         },
       });
-    }, 900);
+    } catch (err) {
+      setIsSendingOtp(false);
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to send OTP right now. Please check your connection and try again.';
+      setFeedbackState({
+        visible: true,
+        type: 'error',
+        title: 'Verification Code Not Sent',
+        message,
+        onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
+      });
+    }
   };
 
   return (
@@ -109,6 +110,7 @@ export default function ForgotPasswordScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 20) + 32 },
@@ -118,22 +120,25 @@ export default function ForgotPasswordScreen() {
         <View style={styles.heroWrapper}>
           <Text style={styles.heroTitle}>Forgot Password?</Text>
           <Text style={styles.heroSubtitle}>
-            Select where you want to receive your security OTP code to reset your account credentials.
+            Enter your registered email address and select where you want to receive your 4-digit security OTP code.
           </Text>
         </View>
 
-        {/* Display Email Field (Uneditable / Locked) */}
+        {/* Editable Registered Email Field (Blank by default) */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Registered Email</Text>
-          <View style={[styles.inputWrapper, styles.inputWrapperLocked]}>
+          <Text style={styles.inputLabel}>Registered Email*</Text>
+          <View style={styles.inputWrapper}>
             <Mail size={18} color="#9CA3AF" style={styles.inputIcon} />
             <TextInput
               value={email}
-              editable={false}
-              selectTextOnFocus={false}
-              style={[styles.textInput, styles.textInputLocked]}
+              onChangeText={setEmail}
+              placeholder="Enter your registered email address"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.textInput}
             />
-            <Lock size={16} color="#9CA3AF" strokeWidth={2} />
           </View>
         </View>
 
@@ -161,7 +166,9 @@ export default function ForgotPasswordScreen() {
             <View style={styles.channelDetails}>
               <Text style={styles.channelTitle}>Send via Email</Text>
               <Text style={styles.channelSubtitle} numberOfLines={1}>
-                {maskEmail(email)}
+                {email.trim() && email.includes('@')
+                  ? maskEmail(email)
+                  : 'Receive 4-digit code in your email inbox'}
               </Text>
             </View>
             <View
@@ -174,36 +181,41 @@ export default function ForgotPasswordScreen() {
             </View>
           </Pressable>
 
-          {/* SMS Option */}
+          {/* WhatsApp Option (replaces SMS) */}
           <Pressable
             style={[
               styles.channelCard,
-              deliveryChannel === 'sms' && styles.channelCardSelected,
+              deliveryChannel === 'whatsapp' && styles.channelCardSelected,
             ]}
-            onPress={() => setDeliveryChannel('sms')}
+            onPress={() => setDeliveryChannel('whatsapp')}
             accessibilityRole="radio"
-            accessibilityState={{ selected: deliveryChannel === 'sms' }}
+            accessibilityState={{ selected: deliveryChannel === 'whatsapp' }}
           >
-            <View style={styles.channelIconCircle}>
-              <Smartphone
+            <View style={[styles.channelIconCircle, styles.whatsappIconCircle]}>
+              <MessageCircle
                 size={20}
-                color={deliveryChannel === 'sms' ? '#111827' : '#6B7280'}
+                color="#075B35"
                 strokeWidth={2.2}
               />
             </View>
             <View style={styles.channelDetails}>
-              <Text style={styles.channelTitle}>Send via SMS</Text>
+              <View style={styles.channelTitleRow}>
+                <Text style={styles.channelTitle}>Send via WhatsApp</Text>
+                <View style={styles.whatsappBadge}>
+                  <Text style={styles.whatsappBadgeText}>WhatsApp</Text>
+                </View>
+              </View>
               <Text style={styles.channelSubtitle} numberOfLines={1}>
-                {maskPhone(phone)}
+                Receive 4-digit code on your registered WhatsApp
               </Text>
             </View>
             <View
               style={[
                 styles.radioCircle,
-                deliveryChannel === 'sms' && styles.radioCircleSelected,
+                deliveryChannel === 'whatsapp' && styles.radioCircleSelected,
               ]}
             >
-              {deliveryChannel === 'sms' && <View style={styles.radioDot} />}
+              {deliveryChannel === 'whatsapp' && <View style={styles.radioDot} />}
             </View>
           </Pressable>
         </View>
@@ -351,14 +363,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  whatsappIconCircle: {
+    backgroundColor: '#DCFCE7',
+  },
   channelDetails: {
     flex: 1,
+  },
+  channelTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
   },
   channelTitle: {
     fontFamily: FONTS.bold,
     fontSize: 14,
     color: COLORS.heading,
-    marginBottom: 2,
+  },
+  whatsappBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  whatsappBadgeText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    color: '#075B35',
   },
   channelSubtitle: {
     fontFamily: FONTS.regular,

@@ -214,11 +214,12 @@ export const authApi = {
       body: JSON.stringify({ identifier, password }),
     }),
 
-  requestOtp: (type: 'email' | 'phone', identifier: string) =>
+  requestOtp: (type: 'email' | 'whatsapp' | 'phone', identifier: string) =>
     apiRequest<{
       message: string;
       identifier: string;
       type: string;
+      expiresIn?: number;
     }>('/auth/otp/request', {
       method: 'POST',
       body: JSON.stringify({ type, identifier }),

@@ -67,16 +67,20 @@ func (h *AuthHandler) CustomerLogin(c *gin.Context) {
 	JSONSuccess(c, http.StatusOK, authResp)
 }
 
-// RequestOTP sends a 4-digit verification code to phone or email.
+// RequestOTP sends a 4-digit verification code to email or WhatsApp after confirming the account exists.
 func (h *AuthHandler) RequestOTP(c *gin.Context) {
 	var req domain.OTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		JSONError(c, http.StatusBadRequest, "Invalid request. 'type' must be 'phone' or 'email' and 'identifier' is required.")
+		JSONError(c, http.StatusBadRequest, "Invalid request. 'type' must be 'email', 'whatsapp', or 'phone' and 'identifier' is required.")
 		return
 	}
 
 	_, err := h.authService.RequestOTP(c.Request.Context(), req.Type, req.Identifier)
 	if err != nil {
+		if errors.Is(err, service.ErrAccountNotFound) {
+			JSONError(c, http.StatusNotFound, "No registered account found with this email address. Please check the email or create an account.")
+			return
+		}
 		JSONError(c, http.StatusInternalServerError, "Failed to send OTP code. Please try again.")
 		return
 	}

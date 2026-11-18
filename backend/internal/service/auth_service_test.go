@@ -66,24 +66,38 @@ func TestAuthService_PhoneOTPWorkflow(t *testing.T) {
 	ctx := context.Background()
 	phone := "+254712345678"
 
-	// 1. Request OTP
-	code, err := authService.RequestOTP(ctx, "phone", phone)
+	// 0. Unregistered phone must be rejected
+	_, err := authService.RequestOTP(ctx, "whatsapp", phone)
+	assert.ErrorIs(t, err, service.ErrAccountNotFound)
+
+	// Register customer first
+	_ = userStore.Create(ctx, &domain.User{
+		ID:       "usr-test-1",
+		Name:     "Amina Odhiambo",
+		Initials: "AO",
+		Phone:    phone,
+		Email:    "amina@kisumu.ke",
+		Role:     domain.RoleCustomer,
+	})
+
+	// 1. Request OTP via WhatsApp
+	code, err := authService.RequestOTP(ctx, "whatsapp", phone)
 	require.NoError(t, err)
 	assert.Len(t, code, 4)
 
 	// 2. Verify with wrong code -> Fail
-	_, err = authService.VerifyOTP(ctx, phone, "0000", "Michael")
+	_, err = authService.VerifyOTP(ctx, phone, "0000", "")
 	assert.ErrorIs(t, err, service.ErrInvalidOTP)
 
-	// 3. Verify with correct code -> Success & JWT issued
-	authResp, err := authService.VerifyOTP(ctx, phone, code, "Michael Clay")
+	// 3. Verify with correct code -> Success & JWT issued with real user profile
+	authResp, err := authService.VerifyOTP(ctx, phone, code, "")
 	require.NoError(t, err)
 	require.NotNil(t, authResp)
 
 	assert.NotEmpty(t, authResp.Token)
 	assert.Equal(t, domain.RoleCustomer, authResp.User.Role)
 	assert.Equal(t, phone, authResp.User.Phone)
-	assert.Equal(t, "Michael Clay", authResp.User.Name)
+	assert.Equal(t, "Amina Odhiambo", authResp.User.Name)
 }
 
 func TestAuthService_EmailOTPWorkflow(t *testing.T) {
@@ -97,20 +111,41 @@ func TestAuthService_EmailOTPWorkflow(t *testing.T) {
 	ctx := context.Background()
 	email := "mikewillmakeit2004@gmail.com"
 
-	// 1. Request OTP using user's email
+	// 0. Unregistered email must be rejected
+	_, err := authService.RequestOTP(ctx, "email", "unregistered@example.com")
+	assert.ErrorIs(t, err, service.ErrAccountNotFound)
+
+	// Seed registered user
+	_ = userStore.Create(ctx, &domain.User{
+		ID:       "usr-test-2",
+		Name:     "Mike Admin",
+		Initials: "MA",
+		Phone:    "+254704769219",
+		Email:    email,
+		Role:     domain.RoleCustomer,
+	})
+
+	// 1. Request OTP using registered email
 	code, err := authService.RequestOTP(ctx, "email", email)
 	require.NoError(t, err)
 	assert.Len(t, code, 4)
 
 	// 2. Verify OTP
-	authResp, err := authService.VerifyOTP(ctx, email, code, "Mike Admin")
+	authResp, err := authService.VerifyOTP(ctx, email, code, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, authResp.Token)
 	assert.Equal(t, email, authResp.User.Email)
+	assert.Equal(t, "Mike Admin", authResp.User.Name)
 
 	// 3. Re-using the same OTP a second time -> Fail
-	_, err = authService.VerifyOTP(ctx, email, code, "Mike Admin")
+	_, err = authService.VerifyOTP(ctx, email, code, "")
 	assert.ErrorIs(t, err, service.ErrInvalidOTP)
+
+	// 4. Reset password & verify new password works + confirmation email sent
+	resetResp, err := authService.ResetPassword(ctx, authResp.User.ID, "NewSecurePass2026!")
+	require.NoError(t, err)
+	assert.NotEmpty(t, resetResp.Token)
+	assert.Equal(t, "Mike Admin", resetResp.User.Name)
 }
 
 func TestAuthService_OTPExpiresAfter5Minutes(t *testing.T) {
@@ -123,6 +158,15 @@ func TestAuthService_OTPExpiresAfter5Minutes(t *testing.T) {
 	ctx := context.Background()
 	email := "michaelclay2225@gmail.com"
 
+	_ = userStore.Create(ctx, &domain.User{
+		ID:       "usr-test-3",
+		Name:     "Michael Clay",
+		Initials: "MC",
+		Phone:    "+254712345678",
+		Email:    email,
+		Role:     domain.RoleCustomer,
+	})
+
 	// 1. Request 4-digit OTP
 	code, err := authService.RequestOTP(ctx, "email", email)
 	require.NoError(t, err)
@@ -132,7 +176,7 @@ func TestAuthService_OTPExpiresAfter5Minutes(t *testing.T) {
 	authService.ExpireOTPForTest(ctx, email)
 
 	// 3. Verify with the exact code after 5 minutes -> Must fail with ErrExpiredOTP
-	_, err = authService.VerifyOTP(ctx, email, code, "Michael Clay")
+	_, err = authService.VerifyOTP(ctx, email, code, "")
 	assert.ErrorIs(t, err, service.ErrExpiredOTP)
 }
 

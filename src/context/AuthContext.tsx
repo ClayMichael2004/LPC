@@ -22,13 +22,28 @@ interface AuthContextType {
   signOut: () => void;
 }
 
-const defaultUser: UserProfile = {
-  id: 'usr-1',
-  name: 'Michael Clay',
-  initials: 'MC',
-  phone: '+254 712 345 678',
-  email: 'michaelclay2225@gmail.com',
-  dob: '15/06/1998',
+function computeInitialsFromName(name?: string, email?: string): string {
+  const cleaned = (name || '').trim();
+  if (cleaned) {
+    const parts = cleaned.split(/\s+/);
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+  }
+  if (email && email.trim()) {
+    return email.trim().slice(0, 2).toUpperCase();
+  }
+  return 'LP';
+}
+
+const emptyUserTemplate: UserProfile = {
+  id: '',
+  name: 'Guest',
+  initials: 'LP',
+  phone: '—',
+  email: '—',
+  dob: '—',
   role: 'customer',
 };
 
@@ -83,10 +98,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = (userData?: Partial<UserProfile>, authToken?: string) => {
+    const resolvedName = userData?.name || user?.name || 'Guest';
+    const resolvedEmail = userData?.email || user?.email || '—';
     const mergedUser: UserProfile = {
-      ...defaultUser,
-      ...(user || {}),
+      ...emptyUserTemplate,
       ...userData,
+      name: resolvedName,
+      email: resolvedEmail,
+      phone: userData?.phone || user?.phone || '—',
+      dob: userData?.dob || user?.dob || '—',
+      initials:
+        userData?.initials || computeInitialsFromName(resolvedName, resolvedEmail),
     };
     setUser(mergedUser);
     setStoredUser(mergedUser);
@@ -100,10 +122,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updates: Partial<UserProfile>): Promise<UserProfile> => {
+    const baseUser = user || emptyUserTemplate;
+    const resolvedName = updates.name ?? baseUser.name;
+    const resolvedEmail = updates.email ?? baseUser.email;
     const optimistic: UserProfile = {
-      ...defaultUser,
-      ...(user || {}),
+      ...baseUser,
       ...updates,
+      initials:
+        updates.initials || computeInitialsFromName(resolvedName, resolvedEmail),
     };
 
     try {

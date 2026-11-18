@@ -64,25 +64,27 @@ export default function VerifyOtpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
-    channel?: 'email' | 'sms';
+    channel?: 'email' | 'whatsapp' | 'sms';
     destination?: string;
   }>();
   const { user } = useAuth();
 
-  const channel = params.channel === 'sms' ? 'sms' : 'email';
+  const channel =
+    params.channel === 'whatsapp' || params.channel === 'sms'
+      ? 'whatsapp'
+      : 'email';
   const destination =
     params.destination ||
-    (channel === 'email'
-      ? user?.email || 'michaelclay2225@gmail.com'
-      : user?.phone || '+254 712 345 678');
+    (channel === 'email' ? user?.email || '' : user?.phone || '');
 
-  const maskedTarget =
-    channel === 'email' ? maskEmail(destination) : maskPhone(destination);
+  const maskedTarget = destination.includes('@')
+    ? maskEmail(destination)
+    : maskPhone(destination);
 
   const sentMessage =
     channel === 'email'
       ? `OTP sent to your email ${maskedTarget}`
-      : `OTP sent to your phone ${maskedTarget}`;
+      : `OTP sent to your WhatsApp (${maskedTarget})`;
 
   const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
   const [isResending, setIsResending] = useState(false);
@@ -165,12 +167,12 @@ export default function VerifyOtpScreen() {
 
   const handleResendOtp = async () => {
     setIsResending(true);
-    const otpType = channel === 'email' ? 'email' : 'phone';
+    const otpType = channel === 'email' ? 'email' : 'whatsapp';
 
     try {
       await authApi.requestOtp(otpType, destination);
     } catch {
-      // Offline / local fallback
+      // Handled on next verification attempt
     }
 
     setTimeout(() => {
@@ -209,11 +211,7 @@ export default function VerifyOtpScreen() {
 
     setIsVerifying(true);
     try {
-      const authResp = await authApi.verifyOtp(
-        destination,
-        code,
-        user?.name || 'Michael Clay'
-      );
+      const authResp = await authApi.verifyOtp(destination, code);
       if (authResp?.token) {
         await setAuthToken(authResp.token);
       }

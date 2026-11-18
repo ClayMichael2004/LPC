@@ -20,9 +20,9 @@ export default function PersonalInfoScreen() {
   const { user, signOut } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const displayName = user?.name || 'Michael Clay';
-  const displayInitials = user?.initials || 'MC';
-  const displayEmail = user?.email || 'michaelclay2225@gmail.com';
+  const displayName = user?.name || 'Guest';
+  const displayInitials = user?.initials || 'LP';
+  const displayEmail = user?.email || '—';
   const displayPhone = user?.phone || '—';
   const displayDob = user?.dob || '—';
 

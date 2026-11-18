@@ -24,8 +24,8 @@ export default function LoginScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const { signIn } = useAuth();
 
-  const [identifier, setIdentifier] = useState('michael.clay@kisumu.ke');
-  const [password, setPassword] = useState('••••••••');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -64,54 +64,32 @@ export default function LoginScreen() {
     try {
       const authResp = await authApi.login(identifier.trim(), password);
       signIn(authResp.user, authResp.token);
+      setIsLoading(false);
+
+      // Route to checkout if referred from checkout, otherwise to home page
+      if (params.from === 'checkout') {
+        router.replace('/checkout/delivery');
+      } else {
+        router.replace('/(tabs)/home');
+      }
     } catch (err) {
+      setIsLoading(false);
       if (err instanceof ApiError) {
-        setIsLoading(false);
         setErrorMessage(err.message);
         return;
       }
-      // Offline / local fallback
-      signIn({
-        name: 'Michael Clay',
-        initials: 'MC',
-        phone: '+254 712 345 678',
-        email: identifier.includes('@') ? identifier.trim() : 'michaelclay2225@gmail.com',
-      });
-    }
-
-    setIsLoading(false);
-
-    // Route to checkout if referred from checkout, otherwise to home page
-    if (params.from === 'checkout') {
-      router.replace('/checkout/delivery');
-    } else {
-      router.replace('/(tabs)/home');
+      setErrorMessage('Unable to sign in right now. Please check your connection and try again.');
     }
   };
 
   const handleGoogleSignIn = () => {
     setModalState({
       visible: true,
-      type: 'confirm',
+      type: 'info',
       title: 'Google Sign-In',
-      message: 'Authenticate with Google as Michael Clay (michaelclay2225@gmail.com)?',
-      primaryText: 'Continue',
-      secondaryText: 'Cancel',
-      onPrimaryPress: () => {
-        setModalState((s) => ({ ...s, visible: false }));
-        signIn({
-          name: 'Michael Clay',
-          initials: 'MC',
-          phone: '+254 712 345 678',
-          email: 'michaelclay2225@gmail.com',
-        });
-        if (params.from === 'checkout') {
-          router.replace('/checkout/delivery');
-        } else {
-          router.replace('/(tabs)/home');
-        }
-      },
-      onSecondaryPress: () => setModalState((s) => ({ ...s, visible: false })),
+      message: 'Please sign in with your registered email and password, or create an account below.',
+      primaryText: 'Got It',
+      onPrimaryPress: () => setModalState((s) => ({ ...s, visible: false })),
     });
   };
 

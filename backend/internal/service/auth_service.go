@@ -25,6 +25,7 @@ const OTPExpiryDuration = 5 * time.Minute
 var (
 	ErrInvalidOTP         = errors.New("invalid or expired OTP code")
 	ErrExpiredOTP         = errors.New("OTP code has expired (valid for 5 minutes)")
+	ErrAccountNotFound    = errors.New("no registered account found with this email address")
 	ErrInvalidAdminAuth   = errors.New("invalid admin email or password")
 	ErrInvalidCredentials = errors.New("invalid email/phone or password")
 	ErrUserAlreadyExists  = errors.New("an account with this email or phone already exists")
@@ -73,9 +74,22 @@ func normalizeOTPIdentifier(identifier string) string {
 	return identifier
 }
 
-// RequestOTP generates a 4-digit code, stores it with 5 min TTL, and dispatches via Email or SMS.
+// RequestOTP verifies the account is registered, generates a 4-digit code with 5 min TTL, and dispatches via Email or WhatsApp.
 func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string) (string, error) {
 	identifier = normalizeOTPIdentifier(identifier)
+
+	// Confirm the email or phone number is registered before sending an OTP
+	var user *domain.User
+	var lookupErr error
+	if strings.Contains(identifier, "@") {
+		user, lookupErr = s.userRepo.GetByEmail(ctx, identifier)
+	} else {
+		user, lookupErr = s.userRepo.GetByPhone(ctx, identifier)
+	}
+	if errors.Is(lookupErr, postgres.ErrUserNotFound) || user == nil {
+		return "", ErrAccountNotFound
+	}
+
 	code, err := generate4DigitCode()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate OTP: %w", err)
@@ -95,14 +109,22 @@ func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string
 	}
 
 	if otpType == "email" {
-		if err := s.emailService.SendOTP(identifier, code); err != nil {
+		targetEmail := user.Email
+		if targetEmail == "" {
+			targetEmail = identifier
+		}
+		if err := s.emailService.SendOTP(targetEmail, code); err != nil {
 			return "", err
 		}
 	} else {
-		// Phone OTP mock
+		// WhatsApp / Phone OTP dispatch (ready for Africa's Talking WhatsApp integration)
+		targetPhone := user.Phone
+		if targetPhone == "" {
+			targetPhone = identifier
+		}
 		log.Printf("==================================================================")
-		log.Printf("[PHONE SMS OTP DISPATCH] To Phone: %s (Expires in 5 minutes)", identifier)
-		log.Printf("[PHONE SMS CODE]         >>> %s <<<", code)
+		log.Printf("[WHATSAPP OTP DISPATCH] To WhatsApp: %s (Expires in 5 minutes)", targetPhone)
+		log.Printf("[WHATSAPP OTP CODE]     >>> %s <<<", code)
 		log.Printf("==================================================================")
 	}
 
@@ -372,9 +394,6 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 	if strings.Contains(identifier, "@") {
 		emailLower := strings.ToLower(identifier)
 		user, err = s.userRepo.GetByEmail(ctx, emailLower)
-		if (err != nil || user == nil) && emailLower == "michael.clay@kisumu.ke" {
-			user, err = s.userRepo.GetByEmail(ctx, "michaelclay2225@gmail.com")
-		}
 	} else {
 		user, err = s.userRepo.GetByPhone(ctx, identifier)
 	}
@@ -408,7 +427,7 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 	}, nil
 }
 
-// ResetPassword hashes and saves a new password for the authenticated user and issues a fresh JWT.
+// ResetPassword hashes and saves a new password for the authenticated user, sends a confirmation email, and issues a fresh JWT.
 func (s *AuthService) ResetPassword(ctx context.Context, userID, newPassword string) (*domain.AuthResponse, error) {
 	if len(newPassword) < 6 {
 		return nil, errors.New("password must be at least 6 characters long")
@@ -427,6 +446,15 @@ func (s *AuthService) ResetPassword(ctx context.Context, userID, newPassword str
 	user.PasswordHash = hashed
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to update password: %w", err)
+	}
+
+	// Send password reset confirmation email (zero credentials shared)
+	if user.Email != "" && s.emailService != nil {
+		targetEmail := user.Email
+		targetName := user.Name
+		go func() {
+			_ = s.emailService.SendPasswordResetConfirmationEmail(targetEmail, targetName)
+		}()
 	}
 
 	token, exp, err := s.generateJWT(user)

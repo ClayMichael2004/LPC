@@ -129,22 +129,11 @@ export default function RegisterScreen() {
   const handleGoogleSignIn = () => {
     setModalState({
       visible: true,
-      type: 'confirm',
+      type: 'info',
       title: 'Google Sign-Up',
-      message: 'Create and authenticate your Little Polo account with Google?',
-      primaryText: 'Continue',
-      secondaryText: 'Cancel',
-      onPrimaryPress: () => {
-        setModalState((s) => ({ ...s, visible: false }));
-        signIn({
-          name: 'Michael Clay',
-          initials: 'MC',
-          phone: '+254 712 345 678',
-          email: 'michaelclay2225@gmail.com',
-        });
-        router.replace('/(tabs)/home');
-      },
-      onSecondaryPress: () => setModalState((s) => ({ ...s, visible: false })),
+      message: 'Please fill in your name, email, phone number, and password above to create your Little Polo account.',
+      primaryText: 'Got It',
+      onPrimaryPress: () => setModalState((s) => ({ ...s, visible: false })),
     });
   };
 
@@ -209,7 +198,7 @@ export default function RegisterScreen() {
                 <TextInput
                   value={firstName}
                   onChangeText={setFirstName}
-                  placeholder="Michael"
+                  placeholder="First name"
                   placeholderTextColor="#9CA3AF"
                   style={styles.textInput}
                 />
@@ -222,7 +211,7 @@ export default function RegisterScreen() {
                 <TextInput
                   value={lastName}
                   onChangeText={setLastName}
-                  placeholder="Clay"
+                  placeholder="Last name"
                   placeholderTextColor="#9CA3AF"
                   style={styles.textInput}
                 />

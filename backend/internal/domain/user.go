@@ -49,7 +49,7 @@ type LoginRequest struct {
 
 // OTPRequest represents the payload to request an authentication code.
 type OTPRequest struct {
-	Type       string `json:"type" binding:"required,oneof=phone email"`
+	Type       string `json:"type" binding:"required,oneof=phone email whatsapp"`
 	Identifier string `json:"identifier" binding:"required"`
 }
 

@@ -41,12 +41,12 @@ export default function EditPersonalDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { user, updateProfile } = useAuth();
 
-  const nameParts = (user?.name || 'Michael Clay').split(' ');
-  const [firstName, setFirstName] = useState(nameParts[0] || 'Michael');
-  const [lastName, setLastName] = useState(nameParts.slice(1).join(' ') || 'Clay');
-  const [email, setEmail] = useState(user?.email || 'michaelclay2225@gmail.com');
-  const [phone, setPhone] = useState(user?.phone === '—' ? '' : user?.phone || '+254 712 345 678');
-  const [dob, setDob] = useState(user?.dob === '—' ? '' : user?.dob || '15/06/1998');
+  const nameParts = (user?.name || '').trim().split(/\s+/).filter(Boolean);
+  const [firstName, setFirstName] = useState(nameParts[0] || '');
+  const [lastName, setLastName] = useState(nameParts.slice(1).join(' ') || '');
+  const [email, setEmail] = useState(user?.email === '—' ? '' : user?.email || '');
+  const [phone, setPhone] = useState(user?.phone === '—' ? '' : user?.phone || '');
+  const [dob, setDob] = useState(user?.dob === '—' ? '' : user?.dob || '');
 
   // Input Editability states
   const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -152,14 +152,14 @@ export default function EditPersonalDetailsScreen() {
     }
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-    const initials = `${firstName[0] || 'M'}${lastName[0] || 'C'}`.toUpperCase();
+    const initials = `${firstName[0] || 'L'}${lastName[0] || firstName[1] || 'P'}`.toUpperCase();
 
     await updateProfile({
       name: fullName,
       initials,
-      phone: phone || '+254 712 345 678',
-      email: email || 'michaelclay2225@gmail.com',
-      dob: dob || '15/06/1998',
+      phone: phone.trim() || '—',
+      email: email.trim() || '—',
+      dob: dob.trim() || '—',
     });
 
     setFeedbackModalState({

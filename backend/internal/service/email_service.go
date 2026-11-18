@@ -226,3 +226,55 @@ func (s *EmailService) SendWelcomeEmail(toEmail, userName string) error {
 	log.Printf("==================================================================")
 	return nil
 }
+
+// SendPasswordResetConfirmationEmail sends a security confirmation email after a password reset.
+// Strictly no credentials or passwords are included in this message.
+func (s *EmailService) SendPasswordResetConfirmationEmail(toEmail, userName string) error {
+	subject := "Little Polo Cafe - Password Reset Confirmation"
+	logoB64 := getLogoBase64()
+
+	var logoImgTag string
+	if logoB64 != "" {
+		logoImgTag = fmt.Sprintf(`<div style="text-align: center; margin-bottom: 20px;">
+      <img src="data:image/png;base64,%s" width="84" height="84" alt="Little Polo Cafe" style="width: 84px; height: 84px; border-radius: 42px; border: 2px solid #E5E7EB; display: inline-block; object-fit: contain;" />
+    </div>`, logoB64)
+	}
+
+	if strings.TrimSpace(userName) == "" {
+		userName = "Valued Guest"
+	}
+
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #F9FAFB; padding: 24px; color: #1F2937;">
+  <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #E5E7EB;">
+    %s
+    <h2 style="color: #691414; margin-top: 0; text-align: center;">Password Reset Successful</h2>
+    <p style="font-size: 15px; line-height: 24px; color: #374151; text-align: center;">
+      Hello <strong>%s</strong>,
+    </p>
+    <p style="font-size: 15px; line-height: 24px; color: #374151; text-align: center;">
+      This is a confirmation that the password for your Little Polo Cafe account has just been reset.
+    </p>
+    <div style="background-color: #DCFCE7; border-radius: 12px; padding: 16px; text-align: center; margin: 24px 0;">
+      <span style="font-size: 14px; font-weight: 600; color: #075B35;">Your account is now secured with your new password.</span>
+    </div>
+    <p style="font-size: 13px; color: #6B7280; line-height: 20px; text-align: center;">
+      For your security, we never include your password in emails. If you did not authorize this change, please contact Little Polo Cafe support immediately.
+    </p>
+    <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;" />
+    <p style="font-size: 11px; color: #9CA3AF; text-align: center;">Little Polo Cafe · Kisumu, Kenya</p>
+  </div>
+</body>
+</html>`, logoImgTag, userName)
+
+	msg := s.buildRFC5322HTMLMessage(toEmail, subject, htmlBody)
+	if s.deliverMIME(toEmail, msg) {
+		return nil
+	}
+
+	log.Printf("==================================================================")
+	log.Printf("[PASSWORD RESET CONFIRMATION EMAIL] From: %s -> To: %s (User: %s)", s.cfg.OTPSenderEmail, toEmail, userName)
+	log.Printf("==================================================================")
+	return nil
+}

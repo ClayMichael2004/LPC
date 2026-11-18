@@ -83,51 +83,32 @@ export default function ResetPasswordScreen() {
     }
 
     setIsSaving(true);
-    let updatedUser = user;
-    let updatedToken = params.token;
 
     try {
       const authResp = await authApi.resetPassword(newPassword, params.token);
-      if (authResp?.user) {
-        updatedUser = authResp.user;
-      }
-      if (authResp?.token) {
-        updatedToken = authResp.token;
-      }
+      setIsSaving(false);
+
+      setModalState({
+        visible: true,
+        type: 'success',
+        title: 'Password Reset Successful',
+        message:
+          'Your new password has been set and a confirmation email has been sent to your email address. You are now signed in!',
+        primaryText: 'Continue to Home',
+        onPrimaryPress: () => {
+          setModalState((s) => ({ ...s, visible: false }));
+          signIn(authResp.user, authResp.token);
+          router.replace('/(tabs)/home');
+        },
+      });
     } catch (err) {
+      setIsSaving(false);
       if (err instanceof ApiError) {
-        setIsSaving(false);
         setErrorMessage(err.message);
         return;
       }
-      // Offline / local fallback
+      setErrorMessage('Unable to reset password right now. Please check your connection and try again.');
     }
-
-    setIsSaving(false);
-
-    setModalState({
-      visible: true,
-      type: 'success',
-      title: 'Password Reset Successful',
-      message:
-        'Your new password has been set and saved. You are now signed in to Little Polo Cafe!',
-      primaryText: 'Continue to Home',
-      onPrimaryPress: () => {
-        setModalState((s) => ({ ...s, visible: false }));
-        signIn(
-          updatedUser || {
-            name: 'Michael Clay',
-            initials: 'MC',
-            email: params.destination?.includes('@')
-              ? params.destination
-              : 'michaelclay2225@gmail.com',
-            phone: '+254 712 345 678',
-          },
-          updatedToken
-        );
-        router.replace('/(tabs)/home');
-      },
-    });
   };
 
   return (
