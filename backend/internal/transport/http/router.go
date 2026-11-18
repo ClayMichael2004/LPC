@@ -88,31 +88,35 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		// Price calculation (Public server-side price calculation endpoint)
 		api.POST("/orders/calculate", h.OrderHandler.CalculatePrice)
 
-		// REST Fallback for Live Tracking (Public or Customer)
-		api.GET("/orders/:id/tracking", h.OrderHandler.GetOrderTracking)
+		// Authenticated Customer & Admin Endpoints (Enforces Single Active Device Session)
+		var sessionValidator middleware.SessionValidatorFunc
+		if h.AuthHandler != nil {
+			sessionValidator = h.AuthHandler.ValidateSession
+		}
 
-		// Authenticated Customer & Admin Endpoints
 		authRequired := api.Group("")
-		authRequired.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		authRequired.Use(middleware.AuthMiddleware(cfg.JWTSecret, sessionValidator))
 		{
-			// Profile & Password Reset
+			// Profile, Password Reset & Logout
 			authRequired.GET("/profile", h.AuthHandler.GetProfile)
 			authRequired.PUT("/profile", h.AuthHandler.UpdateProfile)
 			authRequired.POST("/auth/password/reset", h.AuthHandler.ResetPassword)
+			authRequired.POST("/auth/logout", h.AuthHandler.Logout)
 
-			// Customer Orders
+			// Customer Orders (Strictly isolated to the authenticated customer)
 			orderRoutes := authRequired.Group("/orders")
 			{
 				// Place order with Idempotency Key protection
 				orderRoutes.POST("", middleware.IdempotencyMiddleware(h.IdempotencyStore), h.OrderHandler.CreateOrder)
 				orderRoutes.GET("/my-orders", h.OrderHandler.GetMyOrders)
 				orderRoutes.GET("/:id", h.OrderHandler.GetOrder)
+				orderRoutes.GET("/:id/tracking", h.OrderHandler.GetOrderTracking)
 			}
 		}
 
 		// RBAC Admin Endpoints (Cafe Owner only)
 		adminGroup := api.Group("/admin")
-		adminGroup.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		adminGroup.Use(middleware.AuthMiddleware(cfg.JWTSecret, sessionValidator))
 		adminGroup.Use(middleware.RequireRole(domain.RoleAdmin))
 		{
 			// Admin Order Management

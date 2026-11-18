@@ -23,13 +23,14 @@ type User struct {
 	UpdatedAt    EATTime `json:"updatedAt"`
 }
 
-// UserClaims defines the JWT claims payload with RBAC role.
+// UserClaims defines the JWT claims payload with RBAC role and single-device session ID.
 type UserClaims struct {
-	UserID string `json:"sub"`
-	Role   string `json:"role"`
-	Phone  string `json:"phone"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
+	UserID    string `json:"sub"`
+	SessionID string `json:"sid,omitempty"`
+	Role      string `json:"role"`
+	Phone     string `json:"phone"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
 	jwt.RegisteredClaims
 }
 

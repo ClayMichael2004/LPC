@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import {
+  ApiError,
   authApi,
   clearAuthStorage,
   getAuthToken,
   getStoredUser,
   setAuthToken,
+  setOnSessionRevokedHandler,
   setStoredUser,
 } from '../services/api';
 
@@ -55,6 +57,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSignInModalVisible, setIsSignInModalVisible] = useState(false);
   const [modalSource, setModalSource] = useState<'checkout' | 'nav' | null>(null);
 
+  // Register session revocation handler (single active device session enforcement)
+  useEffect(() => {
+    setOnSessionRevokedHandler(() => {
+      setUser(null);
+      setToken(null);
+    });
+    return () => {
+      setOnSessionRevokedHandler(null);
+    };
+  }, []);
+
   // Hydrate persisted user & token on mount
   useEffect(() => {
     let mounted = true;
@@ -68,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedToken) setToken(storedToken);
       if (storedUser) setUser(storedUser);
 
-      // Refresh profile from backend if token exists
+      // Refresh profile from backend if token exists (verifies single-device session is still active)
       if (storedToken) {
         try {
           const freshProfile = await authApi.getProfile();
@@ -76,8 +89,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(freshProfile);
             await setStoredUser(freshProfile);
           }
-        } catch {
-          // Keep cached storedUser if offline
+        } catch (err) {
+          if (mounted && err instanceof ApiError && err.status === 401) {
+            setUser(null);
+            setToken(null);
+            await clearAuthStorage();
+          }
         }
       }
     })();
@@ -98,8 +115,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = (userData?: Partial<UserProfile>, authToken?: string) => {
-    const resolvedName = userData?.name || user?.name || 'Guest';
-    const resolvedEmail = userData?.email || user?.email || '-';
+    // Strictly isolate new sign-in from any previous user's state
+    const resolvedName = userData?.name || 'Guest';
+    const resolvedEmail = userData?.email || '-';
     const rawDob = userData?.dob;
     const resolvedDob =
       rawDob && rawDob !== '—' && rawDob !== '-' && rawDob !== '15/06/1998'
@@ -110,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...userData,
       name: resolvedName,
       email: resolvedEmail,
-      phone: userData?.phone || user?.phone || '-',
+      phone: userData?.phone || '-',
       dob: resolvedDob,
       initials:
         userData?.initials || computeInitialsFromName(resolvedName, resolvedEmail),
@@ -160,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = () => {
+    authApi.logout().catch(() => {});
     setUser(null);
     setToken(null);
     clearAuthStorage();

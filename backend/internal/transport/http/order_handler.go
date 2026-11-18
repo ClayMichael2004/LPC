@@ -121,9 +121,28 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 	JSONSuccess(c, http.StatusOK, order)
 }
 
-// GetOrderTracking provides the REST fallback for real-time tracking.
+// GetOrderTracking provides the REST fallback for real-time tracking, strictly scoped to the order owner or Admin.
 func (h *OrderHandler) GetOrderTracking(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.GetString(middleware.ContextKeyUserID)
+	userRole := c.GetString(middleware.ContextKeyRole)
+
+	order, err := h.orderService.GetOrderByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, postgres.ErrOrderNotFound) {
+			JSONError(c, http.StatusNotFound, "Order not found")
+			return
+		}
+		JSONError(c, http.StatusInternalServerError, "Failed to fetch order: "+err.Error())
+		return
+	}
+
+	// Strict ownership check: customer may only view tracking for their own orders
+	if userRole != domain.RoleAdmin && order.UserID != userID {
+		JSONError(c, http.StatusForbidden, "You do not have access to view tracking for this order")
+		return
+	}
+
 	tracking, err := h.orderService.GetOrderTracking(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, postgres.ErrOrderNotFound) {

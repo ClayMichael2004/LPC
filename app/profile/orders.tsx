@@ -12,31 +12,48 @@ import { ChevronLeft, Receipt, ArrowRight, Clock } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { ordersApi } from '../../src/services/api';
 import { useCart } from '../../src/context/CartContext';
+import { useAuth } from '../../src/context/AuthContext';
 import { Order } from '../../src/types';
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user, isAuthenticated } = useAuth();
   const { lastPlacedOrder } = useCart();
-  const [orders, setOrders] = useState<Order[]>(lastPlacedOrder ? [lastPlacedOrder] : []);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     let mounted = true;
+    if (!isAuthenticated || !user?.id) {
+      setOrders([]);
+      return;
+    }
+
     ordersApi
       .getMyOrders()
       .then((serverOrders) => {
-        if (mounted && Array.isArray(serverOrders) && serverOrders.length > 0) {
-          setOrders(serverOrders);
+        if (mounted && Array.isArray(serverOrders)) {
+          // Strictly filter to orders owned by the currently authenticated user
+          const ownedOrders = serverOrders.filter(
+            (o) => !o.userId || o.userId === user.id
+          );
+          setOrders(ownedOrders);
         }
       })
       .catch(() => {
-        // Keep local state if offline or unauthenticated
+        if (mounted) {
+          if (lastPlacedOrder && lastPlacedOrder.userId === user.id) {
+            setOrders([lastPlacedOrder]);
+          } else {
+            setOrders([]);
+          }
+        }
       });
 
     return () => {
       mounted = false;
     };
-  }, [lastPlacedOrder]);
+  }, [isAuthenticated, user?.id, lastPlacedOrder]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

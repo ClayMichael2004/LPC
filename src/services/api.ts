@@ -133,11 +133,19 @@ export interface ApiRequestOptions extends RequestInit {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
   }
+}
+
+let onSessionRevokedCallback: (() => void) | null = null;
+
+export function setOnSessionRevokedHandler(handler: (() => void) | null) {
+  onSessionRevokedCallback = handler;
 }
 
 export async function apiRequest<T = any>(
@@ -176,7 +184,23 @@ export async function apiRequest<T = any>(
     if (!response.ok) {
       const errMessage =
         json?.error || json?.message || `Request failed with status ${response.status}`;
-      throw new ApiError(errMessage, response.status);
+      const errCode = json?.code;
+
+      // If an authenticated session was superseded on another device or revoked, sign out immediately
+      if (
+        response.status === 401 &&
+        token &&
+        !endpoint.startsWith('/auth/login') &&
+        !endpoint.startsWith('/auth/otp') &&
+        !endpoint.startsWith('/auth/admin/login')
+      ) {
+        await clearAuthStorage();
+        if (onSessionRevokedCallback) {
+          onSessionRevokedCallback();
+        }
+      }
+
+      throw new ApiError(errMessage, response.status, errCode);
     }
 
     return (json?.data !== undefined ? json.data : json) as T;
@@ -255,6 +279,11 @@ export const authApi = {
     apiRequest<UserProfile>('/profile', {
       method: 'PUT',
       body: JSON.stringify(payload),
+    }),
+
+  logout: () =>
+    apiRequest<{ message: string }>('/auth/logout', {
+      method: 'POST',
     }),
 };
 

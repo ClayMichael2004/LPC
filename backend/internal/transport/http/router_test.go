@@ -435,9 +435,10 @@ func TestHTTP_OrderPlacementWithIdempotencyAndTrackingFallback(t *testing.T) {
 	assert.Equal(t, "true", w2.Header().Get("Idempotent-Replayed"))
 	assert.Equal(t, w.Body.String(), w2.Body.String())
 
-	// REST Fallback for Live Tracking
+	// REST Fallback for Live Tracking (Authenticated Owner Only)
 	wTrack := httptest.NewRecorder()
 	reqTrack, _ := http.NewRequest(http.MethodGet, "/api/v1/orders/"+orderID+"/tracking", nil)
+	reqTrack.Header.Set("Authorization", "Bearer "+customerToken)
 	router.ServeHTTP(wTrack, reqTrack)
 
 	assert.Equal(t, http.StatusOK, wTrack.Code)
@@ -445,6 +446,131 @@ func TestHTTP_OrderPlacementWithIdempotencyAndTrackingFallback(t *testing.T) {
 	assert.Contains(t, wTrack.Body.String(), "PENDING")
 
 	_ = orderRepo
+}
+
+func TestHTTP_SingleDeviceSessionAndCrossAccountIsolation(t *testing.T) {
+	router, _, _ := setupTestApp(t)
+
+	// 1. Register & Login User A on Device 1
+	regA := domain.RegisterRequest{
+		Name:     "User One",
+		Email:    "user1@kisumu.ke",
+		Phone:    "+254700111111",
+		Password: "PasswordA123!",
+	}
+	regABytes, _ := json.Marshal(regA)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(regABytes))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	loginA := domain.LoginRequest{Identifier: "user1@kisumu.ke", Password: "PasswordA123!"}
+	loginABytes, _ := json.Marshal(loginA)
+
+	// Device 1 Login -> tokenA1
+	w1 := httptest.NewRecorder()
+	req1, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginABytes))
+	req1.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w1, req1)
+	require.Equal(t, http.StatusOK, w1.Code)
+	var resp1 httptransport.Response
+	_ = json.Unmarshal(w1.Body.Bytes(), &resp1)
+	tokenA1 := resp1.Data.(map[string]interface{})["token"].(string)
+
+	// Place an order as User A on Device 1
+	orderPayload := domain.CreateOrderRequest{
+		Items:         []domain.OrderItemInput{{ProductID: "big-boss-burger", Quantity: 1}},
+		DeliveryInfo:  domain.DeliveryInfo{AddressName: "Milimani, Kisumu", Phone: "+254700111111"},
+		PaymentMethod: "mpesa",
+	}
+	orderBytes, _ := json.Marshal(orderPayload)
+	wOrd := httptest.NewRecorder()
+	reqOrd, _ := http.NewRequest(http.MethodPost, "/api/v1/orders", bytes.NewReader(orderBytes))
+	reqOrd.Header.Set("Content-Type", "application/json")
+	reqOrd.Header.Set("Authorization", "Bearer "+tokenA1)
+	router.ServeHTTP(wOrd, reqOrd)
+	require.Equal(t, http.StatusCreated, wOrd.Code)
+	var ordResp httptransport.Response
+	_ = json.Unmarshal(wOrd.Body.Bytes(), &ordResp)
+	userAOrderID := ordResp.Data.(map[string]interface{})["id"].(string)
+
+	// 2. User A logs in on Device 2 -> tokenA2 (must immediately invalidate tokenA1!)
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginABytes))
+	req2.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w2, req2)
+	require.Equal(t, http.StatusOK, w2.Code)
+	var resp2 httptransport.Response
+	_ = json.Unmarshal(w2.Body.Bytes(), &resp2)
+	tokenA2 := resp2.Data.(map[string]interface{})["token"].(string)
+
+	// Device 1's tokenA1 must now be rejected with 401 Unauthorized (SESSION_REVOKED)
+	wRevoked := httptest.NewRecorder()
+	reqRevoked, _ := http.NewRequest(http.MethodGet, "/api/v1/profile", nil)
+	reqRevoked.Header.Set("Authorization", "Bearer "+tokenA1)
+	router.ServeHTTP(wRevoked, reqRevoked)
+	assert.Equal(t, http.StatusUnauthorized, wRevoked.Code)
+	assert.Contains(t, wRevoked.Body.String(), "SESSION_REVOKED")
+
+	// Device 2's tokenA2 works normally
+	wActive := httptest.NewRecorder()
+	reqActive, _ := http.NewRequest(http.MethodGet, "/api/v1/profile", nil)
+	reqActive.Header.Set("Authorization", "Bearer "+tokenA2)
+	router.ServeHTTP(wActive, reqActive)
+	assert.Equal(t, http.StatusOK, wActive.Code)
+
+	// 3. Register & Login User B -> Must NEVER access User A's orders or tracking
+	regB := domain.RegisterRequest{
+		Name:     "User Two",
+		Email:    "user2@kisumu.ke",
+		Phone:    "+254700222222",
+		Password: "PasswordB123!",
+	}
+	regBBytes, _ := json.Marshal(regB)
+	wRegB := httptest.NewRecorder()
+	reqRegB, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(regBBytes))
+	reqRegB.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wRegB, reqRegB)
+	require.Equal(t, http.StatusCreated, wRegB.Code)
+
+	loginB := domain.LoginRequest{Identifier: "user2@kisumu.ke", Password: "PasswordB123!"}
+	loginBBytes, _ := json.Marshal(loginB)
+	wLoginB := httptest.NewRecorder()
+	reqLoginB, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginBBytes))
+	reqLoginB.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(wLoginB, reqLoginB)
+	require.Equal(t, http.StatusOK, wLoginB.Code)
+	var respB httptransport.Response
+	_ = json.Unmarshal(wLoginB.Body.Bytes(), &respB)
+	tokenB := respB.Data.(map[string]interface{})["token"].(string)
+
+	// User B attempts to read User A's order -> 403 Forbidden
+	wCrossOrd := httptest.NewRecorder()
+	reqCrossOrd, _ := http.NewRequest(http.MethodGet, "/api/v1/orders/"+userAOrderID, nil)
+	reqCrossOrd.Header.Set("Authorization", "Bearer "+tokenB)
+	router.ServeHTTP(wCrossOrd, reqCrossOrd)
+	assert.Equal(t, http.StatusForbidden, wCrossOrd.Code)
+
+	// User B attempts to read User A's order tracking -> 403 Forbidden
+	wCrossTrack := httptest.NewRecorder()
+	reqCrossTrack, _ := http.NewRequest(http.MethodGet, "/api/v1/orders/"+userAOrderID+"/tracking", nil)
+	reqCrossTrack.Header.Set("Authorization", "Bearer "+tokenB)
+	router.ServeHTTP(wCrossTrack, reqCrossTrack)
+	assert.Equal(t, http.StatusForbidden, wCrossTrack.Code)
+
+	// User B logs out -> tokenB immediately revoked
+	wLogout := httptest.NewRecorder()
+	reqLogout, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	reqLogout.Header.Set("Authorization", "Bearer "+tokenB)
+	router.ServeHTTP(wLogout, reqLogout)
+	assert.Equal(t, http.StatusOK, wLogout.Code)
+
+	wAfterLogout := httptest.NewRecorder()
+	reqAfterLogout, _ := http.NewRequest(http.MethodGet, "/api/v1/profile", nil)
+	reqAfterLogout.Header.Set("Authorization", "Bearer "+tokenB)
+	router.ServeHTTP(wAfterLogout, reqAfterLogout)
+	assert.Equal(t, http.StatusUnauthorized, wAfterLogout.Code)
 }
 
 func TestHTTP_RegisterAndCustomerLogin(t *testing.T) {

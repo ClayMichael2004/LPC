@@ -40,11 +40,12 @@ type UserStore interface {
 }
 
 type AuthService struct {
-	cfg          *config.Config
-	userRepo     UserStore
-	emailService *EmailService
-	redisClient  *redisclient.Client
-	localOTP     sync.Map // Fallback in-memory OTP store
+	cfg            *config.Config
+	userRepo       UserStore
+	emailService   *EmailService
+	redisClient    *redisclient.Client
+	localOTP       sync.Map // Fallback in-memory OTP store
+	activeSessions sync.Map // userID -> active sessionID (single-device session enforcement)
 }
 
 type otpItem struct {
@@ -289,15 +290,28 @@ func (s *AuthService) AdminLogin(ctx context.Context, email, password string) (*
 
 func (s *AuthService) generateJWT(u *domain.User) (string, int64, error) {
 	expDuration := time.Duration(s.cfg.JWTExpiryHours) * time.Hour
+	if expDuration <= 0 {
+		expDuration = 168 * time.Hour
+	}
 	expiresAt := time.Now().Add(expDuration)
+	sessionID := uuid.NewString()
+
+	// Enforce single active device session per user: overwrite any prior device session
+	s.activeSessions.Store(u.ID, sessionID)
+	if s.redisClient != nil {
+		sessionKey := fmt.Sprintf("lpc:session:%s", u.ID)
+		_ = s.redisClient.Set(context.Background(), sessionKey, sessionID, expDuration).Err()
+	}
 
 	claims := domain.UserClaims{
-		UserID: u.ID,
-		Role:   u.Role,
-		Phone:  u.Phone,
-		Email:  u.Email,
-		Name:   u.Name,
+		UserID:    u.ID,
+		SessionID: sessionID,
+		Role:      u.Role,
+		Phone:     u.Phone,
+		Email:     u.Email,
+		Name:      u.Name,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        sessionID,
 			Subject:   u.ID,
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -312,6 +326,44 @@ func (s *AuthService) generateJWT(u *domain.User) (string, int64, error) {
 	}
 
 	return tokenString, expiresAt.Unix(), nil
+}
+
+// ValidateSession checks that the token's SessionID matches the user's single active device session.
+// If the user logged in on another device or signed out, this returns false.
+func (s *AuthService) ValidateSession(ctx context.Context, userID, sessionID string) bool {
+	if userID == "" || sessionID == "" {
+		return false
+	}
+
+	if s.redisClient != nil {
+		sessionKey := fmt.Sprintf("lpc:session:%s", userID)
+		val, err := s.redisClient.Get(ctx, sessionKey).Result()
+		if err == nil {
+			return val != "" && val != "REVOKED" && val == sessionID
+		}
+	}
+
+	if item, ok := s.activeSessions.Load(userID); ok {
+		activeSID, ok := item.(string)
+		if !ok {
+			return false
+		}
+		return activeSID != "" && activeSID != "REVOKED" && activeSID == sessionID
+	}
+
+	return false
+}
+
+// Logout revokes the active session for the given user across Redis and memory.
+func (s *AuthService) Logout(ctx context.Context, userID string) {
+	if userID == "" {
+		return
+	}
+	s.activeSessions.Store(userID, "REVOKED")
+	if s.redisClient != nil {
+		sessionKey := fmt.Sprintf("lpc:session:%s", userID)
+		_ = s.redisClient.Del(ctx, sessionKey).Err()
+	}
 }
 
 func generate4DigitCode() (string, error) {

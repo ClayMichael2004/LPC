@@ -1,8 +1,10 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/littlepolocafe/backend/internal/domain"
@@ -195,14 +197,24 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	if req.Name != nil && *req.Name != "" {
-		user.Name = *req.Name
+	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
+		user.Name = strings.TrimSpace(*req.Name)
 	}
-	if req.Phone != nil && *req.Phone != "" {
-		user.Phone = *req.Phone
+	if req.Phone != nil && strings.TrimSpace(*req.Phone) != "" {
+		newPhone := strings.TrimSpace(*req.Phone)
+		if existing, _ := h.userRepo.GetByPhone(c.Request.Context(), newPhone); existing != nil && existing.ID != userID {
+			JSONError(c, http.StatusConflict, "That phone number is already associated with another account.")
+			return
+		}
+		user.Phone = newPhone
 	}
-	if req.Email != nil {
-		user.Email = *req.Email
+	if req.Email != nil && strings.TrimSpace(*req.Email) != "" {
+		newEmail := strings.ToLower(strings.TrimSpace(*req.Email))
+		if existing, _ := h.userRepo.GetByEmail(c.Request.Context(), newEmail); existing != nil && existing.ID != userID {
+			JSONError(c, http.StatusConflict, "That email address is already associated with another account.")
+			return
+		}
+		user.Email = newEmail
 	}
 	if req.Dob != nil {
 		user.DateOfBirth = req.Dob
@@ -214,4 +226,20 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	JSONSuccess(c, http.StatusOK, user)
+}
+
+// ValidateSession verifies that the token's (userID, sessionID) is the user's single active device session.
+func (h *AuthHandler) ValidateSession(ctx context.Context, userID, sessionID string) bool {
+	return h.authService.ValidateSession(ctx, userID, sessionID)
+}
+
+// Logout revokes the authenticated user's active device session.
+func (h *AuthHandler) Logout(c *gin.Context) {
+	userID := c.GetString(middleware.ContextKeyUserID)
+	if userID != "" {
+		h.authService.Logout(c.Request.Context(), userID)
+	}
+	JSONSuccess(c, http.StatusOK, gin.H{
+		"message": "Signed out successfully and session revoked.",
+	})
 }

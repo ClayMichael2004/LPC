@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,13 +20,20 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 }
 
 // IdempotencyMiddleware ensures mutating requests with an `Idempotency-Key` header
-// are processed exactly once and subsequent retries return cached responses.
+// are processed exactly once per authenticated user and subsequent retries return cached responses.
 func IdempotencyMiddleware(store *redis.IdempotencyStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		idempotencyKey := c.GetHeader("Idempotency-Key")
-		if idempotencyKey == "" {
+		rawKey := c.GetHeader("Idempotency-Key")
+		if rawKey == "" {
 			c.Next()
 			return
+		}
+
+		// Strictly namespace idempotency key by authenticated user ID to prevent cross-account replay
+		userID := c.GetString(ContextKeyUserID)
+		idempotencyKey := rawKey
+		if userID != "" {
+			idempotencyKey = fmt.Sprintf("uid:%s:key:%s", userID, rawKey)
 		}
 
 		ctx := c.Request.Context()

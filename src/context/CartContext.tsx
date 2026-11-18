@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { CartItem, Order, Product, ProductOption } from '../types';
 import { ordersApi } from '../services/api';
+import { useAuth } from './AuthContext';
 
 interface CartContextType {
   items: CartItem[];
@@ -22,6 +23,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [serverSummary, setServerSummary] = useState<{
     subtotal: number;
@@ -30,6 +32,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     total: number;
   } | null>(null);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
+  const prevUserIdRef = useRef<string | undefined>(user?.id);
+
+  // Strict account isolation: clear cart and lastPlacedOrder whenever user signs out or switches accounts
+  useEffect(() => {
+    if (prevUserIdRef.current && prevUserIdRef.current !== user?.id) {
+      setItems([]);
+      setServerSummary(null);
+      setLastPlacedOrder(null);
+    }
+    prevUserIdRef.current = user?.id;
+  }, [user?.id]);
 
   // Sync authoritative server-side pricing whenever cart items change
   useEffect(() => {
