@@ -53,11 +53,16 @@ type OTPRequest struct {
 	Identifier string `json:"identifier" binding:"required"`
 }
 
-// OTPVerifyRequest represents the payload to verify an OTP.
+// OTPVerifyRequest represents the payload to verify a 4-digit OTP.
 type OTPVerifyRequest struct {
 	Identifier string `json:"identifier" binding:"required"`
-	Code       string `json:"code" binding:"required,min=4,max=6"`
+	Code       string `json:"code" binding:"required,len=4"`
 	Name       string `json:"name,omitempty"`
+}
+
+// ResetPasswordRequest represents the payload to set a new password after OTP verification.
+type ResetPasswordRequest struct {
+	NewPassword string `json:"newPassword" binding:"required,min=6"`
 }
 
 // AdminLoginRequest represents the cafe owner login.

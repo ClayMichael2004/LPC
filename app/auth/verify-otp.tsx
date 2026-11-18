@@ -12,12 +12,12 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, ArrowRight, ShieldCheck } from 'lucide-react-native';
+import { ChevronLeft, ArrowRight } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import RedSpinner from '../../src/components/RedSpinner';
 import FeedbackModal from '../../src/components/FeedbackModal';
-import { authApi, ApiError } from '../../src/services/api';
+import { authApi, ApiError, setAuthToken } from '../../src/services/api';
 
 // Masks middle characters of email local part: e.g. michaelclay2225@gmail.com -> mic****25@gmail.com
 export function maskEmail(rawEmail: string): string {
@@ -58,9 +58,8 @@ export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{
     channel?: 'email' | 'sms';
     destination?: string;
-    devCode?: string;
   }>();
-  const { user, signIn } = useAuth();
+  const { user } = useAuth();
 
   const channel = params.channel === 'sms' ? 'sms' : 'email';
   const destination =
@@ -78,7 +77,6 @@ export default function VerifyOtpScreen() {
       : `OTP sent to your phone ${maskedTarget}`;
 
   const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
-  const [activeDevCode, setActiveDevCode] = useState(params.devCode || '');
   const [isResending, setIsResending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [countdown, setCountdown] = useState(45);
@@ -151,10 +149,7 @@ export default function VerifyOtpScreen() {
     const otpType = channel === 'email' ? 'email' : 'phone';
 
     try {
-      const res = await authApi.requestOtp(otpType, destination);
-      if (res?.devCode) {
-        setActiveDevCode(res.devCode.slice(0, 4));
-      }
+      await authApi.requestOtp(otpType, destination);
     } catch {
       // Offline / local fallback
     }
@@ -187,7 +182,17 @@ export default function VerifyOtpScreen() {
         code,
         user?.name || 'Michael Clay'
       );
-      signIn(authResp.user, authResp.token);
+      if (authResp?.token) {
+        await setAuthToken(authResp.token);
+      }
+      setIsVerifying(false);
+      router.replace({
+        pathname: '/auth/reset-password',
+        params: {
+          token: authResp?.token || '',
+          destination,
+        },
+      });
     } catch (err) {
       setIsVerifying(false);
       if (err instanceof ApiError) {
@@ -201,25 +206,13 @@ export default function VerifyOtpScreen() {
         return;
       }
       // Offline fallback
-      signIn({
-        name: user?.name || 'Michael Clay',
-        initials: user?.initials || 'MC',
-        email: channel === 'email' ? destination : user?.email || 'michaelclay2225@gmail.com',
-        phone: channel === 'sms' ? destination : user?.phone || '+254 712 345 678',
+      router.replace({
+        pathname: '/auth/reset-password',
+        params: {
+          destination,
+        },
       });
     }
-
-    setIsVerifying(false);
-    setFeedbackState({
-      visible: true,
-      type: 'success',
-      title: 'Identity Verified',
-      message: 'Your verification code has been confirmed. Welcome back to Little Polo Cafe!',
-      onPrimaryPress: () => {
-        setFeedbackState((s) => ({ ...s, visible: false }));
-        router.replace('/(tabs)/home');
-      },
-    });
   };
 
   return (
@@ -268,24 +261,6 @@ export default function VerifyOtpScreen() {
           <Text style={styles.sentMessageTitle}>{sentMessage}</Text>
           <Text style={styles.enterCodeSubtitle}>Enter the 4-digit code below</Text>
         </View>
-
-        {/* Interactive Code Preview Pill if Dev Code Returned */}
-        {Boolean(activeDevCode) && (
-          <Pressable
-            style={styles.devCodeBanner}
-            onPress={() => {
-              const codeStr = activeDevCode.slice(0, 4).padEnd(4, '0');
-              setOtpDigits(codeStr.split(''));
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Tap to autofill verification code"
-          >
-            <ShieldCheck size={16} color="#065F46" strokeWidth={2.3} />
-            <Text style={styles.devCodeText}>
-              Verification code: <Text style={styles.devCodeBold}>{activeDevCode.slice(0, 4)}</Text> (Tap to fill)
-            </Text>
-          </Pressable>
-        )}
 
         {/* 4-Digit OTP Input Boxes */}
         <View style={styles.otpInputsRow}>
@@ -428,28 +403,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
-  },
-  devCodeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.xl,
-    gap: 8,
-  },
-  devCodeText: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: '#065F46',
-  },
-  devCodeBold: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    letterSpacing: 1,
   },
   otpInputsRow: {
     flexDirection: 'row',

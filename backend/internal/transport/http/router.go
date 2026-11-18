@@ -95,9 +95,10 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		authRequired := api.Group("")
 		authRequired.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		{
-			// Profile
+			// Profile & Password Reset
 			authRequired.GET("/profile", h.AuthHandler.GetProfile)
 			authRequired.PUT("/profile", h.AuthHandler.UpdateProfile)
+			authRequired.POST("/auth/password/reset", h.AuthHandler.ResetPassword)
 
 			// Customer Orders
 			orderRoutes := authRequired.Group("/orders")

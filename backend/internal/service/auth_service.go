@@ -62,10 +62,10 @@ func NewAuthService(
 	}
 }
 
-// RequestOTP generates a 6-digit code, stores it with 5 min TTL, and dispatches via Email or SMS mock.
+// RequestOTP generates a 4-digit code, stores it with 5 min TTL, and dispatches via Email or SMS.
 func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string) (string, error) {
 	identifier = strings.TrimSpace(identifier)
-	code, err := generate6DigitCode()
+	code, err := generate4DigitCode()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate OTP: %w", err)
 	}
@@ -121,12 +121,13 @@ func (s *AuthService) VerifyOTP(ctx context.Context, identifier, code, name stri
 		}
 	}
 
-	// Always accept "123456" or "1234" in development/testing mode for rapid developer verification
-	isDevBypass := (s.cfg.Env == "development" || s.cfg.Env == "test") && (code == "123456" || code == "1234")
-	isPrefixMatch := len(code) == 4 && len(validCode) == 6 && validCode[:4] == code
+	// Only allow "1234" in unit test environment
+	isTestBypass := s.cfg.Env == "test" && code == "1234"
 
-	if validCode != code && !isPrefixMatch && !isDevBypass {
-		return nil, ErrInvalidOTP
+	if validCode == "" || (validCode != code && !isTestBypass) {
+		if !isTestBypass {
+			return nil, ErrInvalidOTP
+		}
 	}
 
 	// Delete used OTP
@@ -255,7 +256,7 @@ func (s *AuthService) generateJWT(u *domain.User) (string, int64, error) {
 	return tokenString, expiresAt.Unix(), nil
 }
 
-func generate6DigitCode() (string, error) {
+func generate4DigitCode() (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(9000))
 	if err != nil {
 		return "", err
@@ -356,6 +357,40 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 			return nil, ErrInvalidCredentials
 		}
+	}
+
+	token, exp, err := s.generateJWT(user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return &domain.AuthResponse{
+		Token:     token,
+		TokenType: "Bearer",
+		ExpiresIn: exp,
+		User:      *user,
+	}, nil
+}
+
+// ResetPassword hashes and saves a new password for the authenticated user and issues a fresh JWT.
+func (s *AuthService) ResetPassword(ctx context.Context, userID, newPassword string) (*domain.AuthResponse, error) {
+	if len(newPassword) < 6 {
+		return nil, errors.New("password must be at least 6 characters long")
+	}
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, postgres.ErrUserNotFound
+	}
+
+	hashed, err := HashPassword(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	user.PasswordHash = hashed
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to update password: %w", err)
 	}
 
 	token, exp, err := s.generateJWT(user)

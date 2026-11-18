@@ -219,7 +219,6 @@ export const authApi = {
       message: string;
       identifier: string;
       type: string;
-      devCode?: string;
     }>('/auth/otp/request', {
       method: 'POST',
       body: JSON.stringify({ type, identifier }),
@@ -229,6 +228,13 @@ export const authApi = {
     apiRequest<AuthResponsePayload>('/auth/otp/verify', {
       method: 'POST',
       body: JSON.stringify({ identifier, code, name }),
+    }),
+
+  resetPassword: (newPassword: string, tempToken?: string) =>
+    apiRequest<AuthResponsePayload>('/auth/password/reset', {
+      method: 'POST',
+      headers: tempToken ? { Authorization: `Bearer ${tempToken}` } : undefined,
+      body: JSON.stringify({ newPassword }),
     }),
 
   adminLogin: (email: string, password: string) =>

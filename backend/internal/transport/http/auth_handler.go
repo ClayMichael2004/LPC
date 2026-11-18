@@ -67,7 +67,7 @@ func (h *AuthHandler) CustomerLogin(c *gin.Context) {
 	JSONSuccess(c, http.StatusOK, authResp)
 }
 
-// RequestOTP sends a 6-digit verification code to phone or email.
+// RequestOTP sends a 4-digit verification code to phone or email.
 func (h *AuthHandler) RequestOTP(c *gin.Context) {
 	var req domain.OTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -75,30 +75,24 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	code, err := h.authService.RequestOTP(c.Request.Context(), req.Type, req.Identifier)
+	_, err := h.authService.RequestOTP(c.Request.Context(), req.Type, req.Identifier)
 	if err != nil {
 		JSONError(c, http.StatusInternalServerError, "Failed to send OTP code. Please try again.")
 		return
 	}
 
-	// In development or test, return OTP preview to assist frontend testing
-	responseMap := gin.H{
+	JSONSuccess(c, http.StatusOK, gin.H{
 		"message":    "Verification code sent successfully",
 		"identifier": req.Identifier,
 		"type":       req.Type,
-	}
-	if gin.Mode() != gin.ReleaseMode {
-		responseMap["devCode"] = code
-	}
-
-	JSONSuccess(c, http.StatusOK, responseMap)
+	})
 }
 
-// VerifyOTP checks the submitted code and returns a JWT token.
+// VerifyOTP checks the submitted 4-digit code and returns a JWT token.
 func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 	var req domain.OTPVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		JSONError(c, http.StatusBadRequest, "Identifier and 6-digit code are required.")
+		JSONError(c, http.StatusBadRequest, "Identifier and 4-digit code are required.")
 		return
 	}
 
@@ -109,6 +103,29 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 			return
 		}
 		JSONError(c, http.StatusInternalServerError, "Authentication failed: "+err.Error())
+		return
+	}
+
+	JSONSuccess(c, http.StatusOK, authResp)
+}
+
+// ResetPassword sets a new password for the authenticated user after OTP verification.
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	userID := c.GetString(middleware.ContextKeyUserID)
+	if userID == "" {
+		JSONError(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req domain.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		JSONError(c, http.StatusBadRequest, "A new password of at least 6 characters is required.")
+		return
+	}
+
+	authResp, err := h.authService.ResetPassword(c.Request.Context(), userID, req.NewPassword)
+	if err != nil {
+		JSONError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 

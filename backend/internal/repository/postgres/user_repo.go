@@ -142,8 +142,8 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 func (r *UserRepository) Update(ctx context.Context, u *domain.User) error {
 	query := `
 		UPDATE users
-		SET name = $1, initials = $2, phone = $3, email = $4, dob = $5, updated_at = $6
-		WHERE id = $7
+		SET name = $1, initials = $2, phone = $3, email = $4, dob = $5, password_hash = $6, role = $7, updated_at = $8
+		WHERE id = $9
 	`
 	now := time.Now()
 	res, err := r.pool.Exec(ctx, query,
@@ -152,6 +152,8 @@ func (r *UserRepository) Update(ctx context.Context, u *domain.User) error {
 		u.Phone,
 		u.Email,
 		u.DateOfBirth,
+		u.PasswordHash,
+		u.Role,
 		now,
 		u.ID,
 	)

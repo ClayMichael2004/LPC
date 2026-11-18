@@ -331,7 +331,7 @@ func TestHTTP_AuthAndRBAC(t *testing.T) {
 	// 1. Customer OTP Verification
 	verifyReq := domain.OTPVerifyRequest{
 		Identifier: "+254712345678",
-		Code:       "123456", // Test/Dev bypass code
+		Code:       "1234", // Test bypass code
 	}
 	verifyBytes, _ := json.Marshal(verifyReq)
 	w := httptest.NewRecorder()
@@ -383,7 +383,7 @@ func TestHTTP_OrderPlacementWithIdempotencyAndTrackingFallback(t *testing.T) {
 	// Verify Customer Token
 	verifyReq := domain.OTPVerifyRequest{
 		Identifier: "+254712345678",
-		Code:       "123456",
+		Code:       "1234",
 	}
 	verifyBytes, _ := json.Marshal(verifyReq)
 	w := httptest.NewRecorder()

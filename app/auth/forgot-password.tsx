@@ -65,16 +65,11 @@ export default function ForgotPasswordScreen() {
     setIsSendingOtp(true);
     const destination = deliveryChannel === 'email' ? email.trim() : phone.trim();
     const otpType = deliveryChannel === 'email' ? 'email' : 'phone';
-    let receivedDevCode = '';
 
     try {
-      const resp = await authApi.requestOtp(otpType, destination);
-      if (resp?.devCode) {
-        receivedDevCode = resp.devCode.slice(0, 4);
-      }
+      await authApi.requestOtp(otpType, destination);
     } catch {
       // Offline / local fallback
-      receivedDevCode = '1234';
     }
 
     // Show spinner animation briefly, then open the dedicated Verify OTP screen
@@ -85,7 +80,6 @@ export default function ForgotPasswordScreen() {
         params: {
           channel: deliveryChannel,
           destination,
-          devCode: receivedDevCode,
         },
       });
     }, 900);
