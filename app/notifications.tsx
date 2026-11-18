@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,10 +6,12 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Bell, Palette, Tag, CheckCheck } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../src/constants/theme';
+import { useAuth } from '../src/context/AuthContext';
 
 interface NotificationItem {
   id: string;
@@ -55,19 +57,56 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
+const NOTIF_STORAGE_PREFIX = '@lpc_read_notifications_v1_';
+
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'activities' | 'offers'>('all');
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+
+  const storageKey = `${NOTIF_STORAGE_PREFIX}${user?.id || 'guest'}`;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        if (!mounted || !raw) return;
+        const readIds: string[] = JSON.parse(raw);
+        if (Array.isArray(readIds)) {
+          setNotifications(
+            INITIAL_NOTIFICATIONS.map((n) =>
+              readIds.includes(n.id) ? { ...n, read: true } : n
+            )
+          );
+        }
+      } catch {
+        // Ignore read error
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [storageKey]);
 
   const filteredNotifications = notifications.filter((item) => {
     if (activeTab === 'all') return true;
     return item.category === activeTab;
   });
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const handleMarkAllAsRead = async () => {
+    const updated = notifications.map((n) => ({ ...n, read: true }));
+    setNotifications(updated);
+    try {
+      await AsyncStorage.setItem(
+        storageKey,
+        JSON.stringify(updated.map((n) => n.id))
+      );
+    } catch {
+      // Ignore write error
+    }
   };
 
   return (

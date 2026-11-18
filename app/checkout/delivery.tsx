@@ -198,7 +198,7 @@ export default function CheckoutDeliveryScreen() {
         <View style={styles.priceRow}>
           <Text style={styles.deliveryFeeText}>Delivery fee KSh {deliveryFee}.00</Text>
           <Text style={styles.totalPriceText}>
-            Total KSh {total > 0 ? total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '1,500.00'}
+            Total KSh {total > 0 ? total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
           </Text>
         </View>
 

@@ -42,29 +42,12 @@ export default function CheckoutPaymentScreen() {
     message: '',
   });
 
-  const displayItems = items.length > 0 ? items : [
-    {
-      cartItemId: 'mock-1',
-      product: { id: 'streetwise-3-crunch', name: 'Streetwise 3 Crunch', price: 650, category: 'for-me', image: null },
-      quantity: 1,
-      unitPrice: 650,
-      totalPrice: 650,
-    },
-    {
-      cartItemId: 'mock-2',
-      product: { id: '2l-soda', name: '2L Soda', price: 350, category: 'drinks', image: null },
-      selectedOption: { id: 'coke', name: 'Coke' },
-      quantity: 2,
-      unitPrice: 350,
-      totalPrice: 700,
-    },
-  ];
-
-  const displaySubtotal = subtotal > 0 ? subtotal : 1350;
-  const displayFee = deliveryFee > 0 ? deliveryFee : 150;
-  const displayVat = vat > 0 ? vat : 206.90;
-  const displayTotal = total > 0 ? total : 1500;
-  const totalItemCount = items.length > 0 ? items.reduce((s, i) => s + i.quantity, 0) : 3;
+  const displayItems = items;
+  const displaySubtotal = subtotal;
+  const displayFee = deliveryFee;
+  const displayVat = vat;
+  const displayTotal = total;
+  const totalItemCount = items.reduce((s, i) => s + i.quantity, 0);
 
   const submitOrderToBackend = async () => {
     const orderItems = displayItems.map((item) => ({
@@ -109,6 +92,14 @@ export default function CheckoutPaymentScreen() {
 
   const handlePay = async () => {
     if (!paymentMethod) return;
+    if (displayItems.length === 0) {
+      setErrorModal({
+        visible: true,
+        title: 'Your Cart Is Empty',
+        message: 'Please add items from the menu before proceeding to payment.',
+      });
+      return;
+    }
 
     if (paymentMethod === 'mpesa') {
       setStkModalVisible(true);

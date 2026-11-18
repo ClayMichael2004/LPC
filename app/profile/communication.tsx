@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,23 +7,63 @@ import {
   Pressable,
   Switch,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, MessageSquare, Mail, Bell, Sparkles } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
+import { useAuth } from '../../src/context/AuthContext';
 import FeedbackModal from '../../src/components/FeedbackModal';
+
+const COMM_PREFS_KEY_PREFIX = '@lpc_comm_prefs_v1_';
 
 export default function CommunicationPreferencesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(true);
   const [promoEnabled, setPromoEnabled] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const handleSave = () => {
+  const storageKey = `${COMM_PREFS_KEY_PREFIX}${user?.id || 'guest'}`;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        if (!mounted || !raw) return;
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.smsEnabled === 'boolean') setSmsEnabled(parsed.smsEnabled);
+        if (typeof parsed.whatsappEnabled === 'boolean') setWhatsappEnabled(parsed.whatsappEnabled);
+        if (typeof parsed.emailEnabled === 'boolean') setEmailEnabled(parsed.emailEnabled);
+        if (typeof parsed.promoEnabled === 'boolean') setPromoEnabled(parsed.promoEnabled);
+      } catch {
+        // Keep defaults on read error
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [storageKey]);
+
+  const handleSave = async () => {
+    try {
+      await AsyncStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          smsEnabled,
+          whatsappEnabled,
+          emailEnabled,
+          promoEnabled,
+        })
+      );
+    } catch {
+      // Ignore storage error
+    }
     setShowSuccessModal(true);
   };
 
