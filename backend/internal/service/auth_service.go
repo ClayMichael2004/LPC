@@ -374,6 +374,11 @@ func generate4DigitCode() (string, error) {
 	return fmt.Sprintf("%04d", n.Int64()+1000), nil
 }
 
+// ComputeInitials derives 1-2 uppercase initials from a user's full name.
+func ComputeInitials(name string) string {
+	return computeInitials(name)
+}
+
 func computeInitials(name string) string {
 	parts := strings.Fields(name)
 	if len(parts) == 0 {

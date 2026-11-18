@@ -18,6 +18,7 @@ import FeedbackModal from '../../src/components/FeedbackModal';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useCart } from '../../src/context/CartContext';
 import { useLocation } from '../../src/context/LocationContext';
+import { useAuth } from '../../src/context/AuthContext';
 import { ordersApi, generateIdempotencyKey, ApiError } from '../../src/services/api';
 
 export default function CheckoutPaymentScreen() {
@@ -25,6 +26,7 @@ export default function CheckoutPaymentScreen() {
   const insets = useSafeAreaInsets();
   const { items, subtotal, deliveryFee, vat, total, clearCart, setLastPlacedOrder } = useCart();
   const { deliveryInfo, locationName, fullAddress } = useLocation();
+  const { user } = useAuth();
   const idempotencyKeyRef = useRef<string>(generateIdempotencyKey());
 
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | null>('mpesa');
@@ -71,12 +73,16 @@ export default function CheckoutPaymentScreen() {
       quantity: item.quantity,
     }));
 
+    const resolvedPhone =
+      deliveryInfo?.phone ||
+      (user?.phone && user.phone !== '-' && user.phone !== '—' ? user.phone : '');
+
     const finalDeliveryInfo = {
       addressName: deliveryInfo?.addressName || locationName || 'East Kisumu',
       landmark: deliveryInfo?.landmark || 'Near LBDA HQ',
       estateBuilding: deliveryInfo?.estateBuilding || '',
       deliveryInstructions: deliveryInfo?.deliveryInstructions || '',
-      phone: deliveryInfo?.phone || '+254 712 345 678',
+      phone: resolvedPhone,
       saveAddress: deliveryInfo?.saveAddress ?? true,
     };
 
@@ -352,7 +358,13 @@ export default function CheckoutPaymentScreen() {
             </View>
 
             <Text style={styles.stkTitle}>M-PESA STK Push Sent</Text>
-            <Text style={styles.stkPhone}>{deliveryInfo.phone ? `+254 ${deliveryInfo.phone}` : '+254 712 345 678'}</Text>
+            <Text style={styles.stkPhone}>
+              {deliveryInfo.phone
+                ? `+254 ${deliveryInfo.phone.replace(/^\+?254\s*/, '')}`
+                : user?.phone && user.phone !== '-' && user.phone !== '—'
+                ? user.phone
+                : 'Your registered M-Pesa number'}
+            </Text>
 
             {stkState === 'prompting' && (
               <View style={styles.stkStatusGroup}>

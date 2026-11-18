@@ -199,6 +199,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
 		user.Name = strings.TrimSpace(*req.Name)
+		user.Initials = service.ComputeInitials(user.Name)
 	}
 	if req.Phone != nil && strings.TrimSpace(*req.Phone) != "" {
 		newPhone := strings.TrimSpace(*req.Phone)

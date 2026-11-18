@@ -25,7 +25,9 @@ export default function CheckoutDeliveryScreen() {
   const { subtotal, deliveryFee, total } = useCart();
   const { user } = useAuth();
 
-  const defaultPhone = (user?.phone || deliveryInfo.phone || '712 345 678')
+  const userPhoneClean =
+    user?.phone && user.phone !== '-' && user.phone !== '—' ? user.phone : '';
+  const defaultPhone = (userPhoneClean || deliveryInfo.phone || '')
     .replace(/^\+?254\s*/, '')
     .trim();
 
@@ -34,7 +36,7 @@ export default function CheckoutDeliveryScreen() {
   const [phone, setPhone] = useState(defaultPhone);
   const [saveAddress, setSaveAddress] = useState(deliveryInfo.saveAddress ?? true);
 
-  // Keep local form synchronized if location changes
+  // Keep local form synchronized if location or authenticated user changes
   useEffect(() => {
     if (deliveryInfo.estateBuilding !== undefined) {
       setEstateBuilding(deliveryInfo.estateBuilding);
@@ -42,7 +44,11 @@ export default function CheckoutDeliveryScreen() {
     if (deliveryInfo.deliveryInstructions !== undefined) {
       setDeliveryInstructions(deliveryInfo.deliveryInstructions);
     }
-  }, [locationName, fullAddress]);
+  }, [locationName, fullAddress, deliveryInfo.estateBuilding, deliveryInfo.deliveryInstructions]);
+
+  useEffect(() => {
+    setPhone(defaultPhone);
+  }, [defaultPhone]);
 
   const handleOpenLocationPicker = () => {
     router.push({ pathname: '/location', params: { from: 'checkout' } });

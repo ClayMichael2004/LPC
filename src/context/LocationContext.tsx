@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeliveryInfo } from '../types';
+import { useAuth } from './AuthContext';
 
 export interface MapCoordinates {
   latitude: number;
@@ -17,7 +18,7 @@ interface LocationContextType {
   updateDeliveryInfo: (info: Partial<DeliveryInfo>) => void;
 }
 
-const LOCATION_STORAGE_KEY = '@lpc_saved_location_v1';
+const BASE_LOCATION_STORAGE_KEY = '@lpc_saved_location_v2';
 
 // Default center: Little Polo Cafe delivery zone in Kisumu
 const DEFAULT_COORDS: MapCoordinates = {
@@ -30,24 +31,35 @@ const defaultDeliveryInfo: DeliveryInfo = {
   landmark: 'LBDA HQ, East Kisumu, Kisumu County',
   estateBuilding: '',
   deliveryInstructions: '',
-  phone: '712 345 678',
+  phone: '',
   saveAddress: true,
 };
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [locationName, setLocationNameState] = useState('LBDA HQ');
   const [fullAddress, setFullAddress] = useState('LBDA HQ, East Kisumu, Kisumu County');
   const [coordinates, setCoordinates] = useState<MapCoordinates>(DEFAULT_COORDS);
   const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo>(defaultDeliveryInfo);
 
-  // Hydrate saved location on startup
+  const storageKey = user?.id
+    ? `${BASE_LOCATION_STORAGE_KEY}_${user.id}`
+    : `${BASE_LOCATION_STORAGE_KEY}_guest`;
+
+  // Hydrate saved location scoped strictly to the current user (or reset on account switch)
   useEffect(() => {
     let mounted = true;
+    // Reset to clean defaults before hydrating the active account's saved location
+    setLocationNameState('LBDA HQ');
+    setFullAddress('LBDA HQ, East Kisumu, Kisumu County');
+    setCoordinates(DEFAULT_COORDS);
+    setDeliveryInfo(defaultDeliveryInfo);
+
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(LOCATION_STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(storageKey);
         if (!mounted || !raw) return;
         const parsed = JSON.parse(raw);
         if (parsed.locationName) setLocationNameState(parsed.locationName);
@@ -63,7 +75,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [storageKey]);
 
   const persistState = async (
     nextName: string,
@@ -73,7 +85,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   ) => {
     try {
       await AsyncStorage.setItem(
-        LOCATION_STORAGE_KEY,
+        storageKey,
         JSON.stringify({
           locationName: nextName,
           fullAddress: nextAddress,

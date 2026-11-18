@@ -17,8 +17,8 @@ import { useAuth } from '../context/AuthContext';
 
 export default function SignInSheetModal() {
   const router = useRouter();
-  const { isSignInModalVisible, modalSource, hideSignInModal, signIn } = useAuth();
-  const [phoneNumber, setPhoneNumber] = useState('712 345 678');
+  const { isSignInModalVisible, modalSource, hideSignInModal } = useAuth();
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [showInput, setShowInput] = useState(false);
 
   if (!isSignInModalVisible) return null;
