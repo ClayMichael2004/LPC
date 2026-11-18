@@ -39,9 +39,9 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <LocationProvider>
-        <CartProvider>
-          <AuthProvider>
+      <AuthProvider>
+        <LocationProvider>
+          <CartProvider>
             <CategoryProvider>
               <StatusBar style="dark" />
               <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
@@ -76,9 +76,9 @@ export default function RootLayout() {
               <SystemBarBlur />
               <SignInSheetModal />
             </CategoryProvider>
-          </AuthProvider>
-        </CartProvider>
-      </LocationProvider>
+          </CartProvider>
+        </LocationProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
