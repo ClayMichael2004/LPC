@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,14 +10,27 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff, AlertCircle, ShieldCheck, MessageSquare } from 'lucide-react-native';
+import {
+  ChevronLeft,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  ShieldCheck,
+  MessageSquare,
+  X,
+  Clock,
+  CheckCircle2,
+} from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import FeedbackModal from '../../src/components/FeedbackModal';
-import { authApi, ApiError } from '../../src/services/api';
+import { authApi, setAuthToken, ApiError } from '../../src/services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -41,6 +54,39 @@ export default function LoginScreen() {
     email: '',
     phone: '',
   });
+
+  // Admin 2FA Code Verification Modal (In-place modal on login screen)
+  const [otpVerifyModal, setOtpVerifyModal] = useState<{
+    visible: boolean;
+    channel: 'email' | 'whatsapp';
+    destination: string;
+  }>({
+    visible: false,
+    channel: 'email',
+    destination: '',
+  });
+
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(45);
+  const [isResending, setIsResending] = useState(false);
+
+  const digitRefs = [
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+    useRef<TextInput>(null),
+  ];
+
+  // Resend Countdown Timer
+  useEffect(() => {
+    if (!otpVerifyModal.visible || countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpVerifyModal.visible, countdown]);
 
   // In-app Google Auth / Notice Modal
   const [modalState, setModalState] = useState<{
@@ -111,21 +157,118 @@ export default function LoginScreen() {
   const handleSelectAdminOtpChannel = async (channel: 'email' | 'whatsapp') => {
     const destination = channel === 'email' ? adminOtpModal.email : adminOtpModal.phone;
     setIsLoading(true);
-    setAdminOtpModal((s) => ({ ...s, visible: false }));
+    setErrorMessage(null);
     try {
       await authApi.requestOtp(channel, destination);
       setIsLoading(false);
-      router.push({
-        pathname: '/auth/verify-otp',
-        params: {
-          channel,
-          destination,
-          from: 'admin_login',
-        },
+      setAdminOtpModal((s) => ({ ...s, visible: false }));
+
+      // Open the OTP Verification Modal directly on screen
+      setOtpDigits(['', '', '', '']);
+      setOtpError(null);
+      setCountdown(45);
+      setOtpVerifyModal({
+        visible: true,
+        channel,
+        destination,
       });
+
+      // Focus first digit box
+      setTimeout(() => {
+        digitRefs[0].current?.focus();
+      }, 350);
     } catch (err: any) {
       setIsLoading(false);
-      setErrorMessage(err?.message || 'Failed to dispatch verification code. Please try again.');
+      setErrorMessage(err?.message || 'Failed to dispatch verification code. Please check connection.');
+    }
+  };
+
+  const handleOtpDigitChange = (value: string, index: number) => {
+    const cleaned = value.replace(/[^0-9]/g, '');
+    const newDigits = [...otpDigits];
+
+    if (cleaned.length > 1) {
+      // Pasted full 4-digit code
+      const pastedDigits = cleaned.slice(0, 4).split('');
+      pastedDigits.forEach((d, i) => {
+        if (i < 4) newDigits[i] = d;
+      });
+      setOtpDigits(newDigits);
+      if (pastedDigits.length === 4) {
+        handleVerifyAdminOtp(newDigits.join(''));
+      } else {
+        const nextIdx = Math.min(pastedDigits.length, 3);
+        digitRefs[nextIdx].current?.focus();
+      }
+      return;
+    }
+
+    newDigits[index] = cleaned;
+    setOtpDigits(newDigits);
+    setOtpError(null);
+
+    if (cleaned && index < 3) {
+      digitRefs[index + 1].current?.focus();
+    }
+
+    // Auto verify when 4th digit is entered
+    if (cleaned && index === 3) {
+      const fullCode = newDigits.join('');
+      if (fullCode.length === 4) {
+        handleVerifyAdminOtp(fullCode);
+      }
+    }
+  };
+
+  const handleOtpKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      digitRefs[index - 1].current?.focus();
+    }
+  };
+
+  const handleVerifyAdminOtp = async (codeToVerify?: string) => {
+    const code = codeToVerify || otpDigits.join('');
+    if (code.length < 4) {
+      setOtpError('Please enter all 4 digits of the verification code.');
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setOtpError(null);
+    try {
+      const authResp = await authApi.verifyOtp(otpVerifyModal.destination, code);
+      if (authResp?.token) {
+        await setAuthToken(authResp.token);
+      }
+      setIsVerifyingOtp(false);
+      setOtpVerifyModal((s) => ({ ...s, visible: false }));
+
+      signIn(authResp.user, authResp.token);
+
+      if (params.from === 'checkout') {
+        router.replace('/checkout/delivery');
+      } else {
+        router.replace('/(tabs)/home');
+      }
+    } catch (err: any) {
+      setIsVerifyingOtp(false);
+      setOtpError(err?.message || 'Invalid verification code. Please check your code and try again.');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (countdown > 0 || isResending) return;
+    setIsResending(true);
+    setOtpError(null);
+    try {
+      await authApi.requestOtp(otpVerifyModal.channel, otpVerifyModal.destination);
+      setIsResending(false);
+      setCountdown(45);
+      setOtpDigits(['', '', '', '']);
+      digitRefs[0].current?.focus();
+    } catch (err: any) {
+      setIsResending(false);
+      setOtpError(err?.message || 'Failed to resend code. Please try again.');
     }
   };
 
@@ -184,7 +327,7 @@ export default function LoginScreen() {
           <Text style={styles.welcomeSubtitle}>Sign in to your Little Polo account</Text>
         </View>
 
-        {/* Inline Error Message Banner (Modern, Zero OS Alerts) */}
+        {/* Inline Error Message Banner */}
         {errorMessage && (
           <View style={styles.errorBanner}>
             <AlertCircle size={18} color="#DC2626" strokeWidth={2.2} style={{ marginRight: 8 }} />
@@ -225,97 +368,103 @@ export default function LoginScreen() {
               placeholder="Enter your password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
-              style={styles.textInput}
+              style={[styles.textInput, { paddingRight: 40 }]}
             />
             <Pressable
               onPress={() => setShowPassword(!showPassword)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.eyeBtn}
+              style={styles.eyeButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? (
-                <EyeOff size={18} color="#6B7280" />
+                <EyeOff size={18} color="#9CA3AF" strokeWidth={2} />
               ) : (
-                <Eye size={18} color="#6B7280" />
+                <Eye size={18} color="#9CA3AF" strokeWidth={2} />
               )}
             </Pressable>
           </View>
 
-          {/* Forgot Password Link */}
-          <Pressable
-            onPress={handleForgotPassword}
-            style={styles.forgotBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </Pressable>
-
-          {/* Primary Log In Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.loginButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={handleSignIn}
-            accessibilityRole="button"
-            accessibilityLabel="Log In"
-          >
-            <Text style={styles.loginButtonText}>
-              {isLoading ? 'Signing In...' : 'Log In'}
-            </Text>
-          </Pressable>
-
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
+          {/* Forgot Password */}
+          <View style={styles.forgotPasswordRow}>
+            <Pressable
+              onPress={handleForgotPassword}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Forgot Password"
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </Pressable>
           </View>
 
-          {/* Google Sign-In Button (Placeholder) */}
+          {/* Sign In Primary CTA */}
           <Pressable
-            style={({ pressed }) => [
-              styles.googleButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={handleGoogleSignIn}
+            style={[styles.signInButton, isLoading && styles.buttonDisabled]}
+            onPress={handleSignIn}
+            disabled={isLoading}
             accessibilityRole="button"
-            accessibilityLabel="Sign in with Google"
+            accessibilityLabel="Sign In"
           >
-            <View style={styles.googleIconCircle}>
-              <Text style={styles.googleGText}>G</Text>
-            </View>
-            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+            {isLoading ? (
+              <ActivityIndicator color={COLORS.white} size="small" />
+            ) : (
+              <Text style={styles.signInButtonText}>Sign In</Text>
+            )}
           </Pressable>
         </View>
 
-        {/* Bottom Register Option */}
+        {/* Divider */}
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or continue with</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Social Sign In (Google) */}
+        <Pressable
+          style={styles.googleButton}
+          onPress={handleGoogleSignIn}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in with Google"
+        >
+          <Image
+            source={require('../../assets/images/google-icon.png')}
+            style={styles.googleIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.googleButtonText}>Continue with Google</Text>
+        </Pressable>
+
+        {/* Don't have an account? Sign Up */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Don’t have an account? </Text>
+          <Text style={styles.footerText}>Don't have an account? </Text>
           <Pressable
             onPress={() => router.push('/auth/register')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Create an account"
           >
-            <Text style={styles.registerLink}>Register</Text>
+            <Text style={styles.signUpText}>Sign Up</Text>
           </Pressable>
         </View>
       </ScrollView>
 
-      {/* Admin 2FA Delivery Selection Modal */}
+      {/* Admin 2FA Delivery Channel Selection Modal */}
       <Modal
         visible={adminOtpModal.visible}
         transparent
         animationType="fade"
         onRequestClose={() => setAdminOtpModal((s) => ({ ...s, visible: false }))}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.adminModalBackdrop}>
           <View style={styles.adminModalCard}>
             <View style={styles.adminModalHeader}>
               <View style={styles.shieldIconCircle}>
-                <ShieldCheck size={28} color="#07345F" strokeWidth={2.4} />
+                <ShieldCheck size={32} color="#07345F" strokeWidth={2.3} />
               </View>
               <Text style={styles.adminModalTitle}>Security Verification</Text>
               <Text style={styles.adminModalSubtitle}>
-                As the cafe administrator, please choose where to receive your 4-digit sign-in code:
+                Choose where to receive your 4-digit administrator security code:
               </Text>
             </View>
 
@@ -375,7 +524,110 @@ export default function LoginScreen() {
         </View>
       </Modal>
 
-      {/* Modern In-App Modal Dialog */}
+      {/* Admin 2FA In-Place OTP Code Entry Modal */}
+      <Modal
+        visible={otpVerifyModal.visible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOtpVerifyModal((s) => ({ ...s, visible: false }))}
+      >
+        <View style={styles.adminModalBackdrop}>
+          <View style={styles.otpModalCard}>
+            {/* Modal Header */}
+            <View style={styles.otpModalHeaderRow}>
+              <View style={styles.otpHeaderTitleGroup}>
+                <Text style={styles.otpModalTitle}>Enter Verification Code</Text>
+                <Text style={styles.otpModalSubtitle}>
+                  Sent to {otpVerifyModal.destination}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setOtpVerifyModal((s) => ({ ...s, visible: false }))}
+                style={styles.otpModalCloseBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={20} color={COLORS.heading} strokeWidth={2.3} />
+              </Pressable>
+            </View>
+
+            {/* Error Message inside modal */}
+            {otpError && (
+              <View style={styles.otpErrorBanner}>
+                <AlertCircle size={16} color="#DC2626" strokeWidth={2.2} />
+                <Text style={styles.otpErrorText}>{otpError}</Text>
+              </View>
+            )}
+
+            {/* 4-Digit Input Boxes */}
+            <View style={styles.digitsRow}>
+              {otpDigits.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={digitRefs[index]}
+                  value={digit}
+                  onChangeText={(val) => handleOtpDigitChange(val, index)}
+                  onKeyPress={(e) => handleOtpKeyPress(e, index)}
+                  keyboardType="number-pad"
+                  maxLength={index === 0 ? 4 : 1}
+                  selectTextOnFocus
+                  style={[
+                    styles.digitBox,
+                    digit ? styles.digitBoxFilled : null,
+                  ]}
+                />
+              ))}
+            </View>
+
+            {/* Resend and Countdown */}
+            <View style={styles.otpFooterRow}>
+              <View style={styles.countdownRow}>
+                <Clock size={14} color={COLORS.textSecondary} />
+                <Text style={styles.countdownText}>
+                  {countdown > 0 ? `Resend in ${countdown}s` : 'Code expired'}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={handleResendOtp}
+                disabled={countdown > 0 || isResending}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Text
+                  style={[
+                    styles.resendBtnText,
+                    countdown > 0 && styles.resendBtnDisabled,
+                  ]}
+                >
+                  {isResending ? 'Sending...' : 'Resend Code'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Verify CTA Button */}
+            <Pressable
+              style={[
+                styles.verifySubmitBtn,
+                (isVerifyingOtp || otpDigits.join('').length < 4) && styles.verifySubmitDisabled,
+              ]}
+              onPress={() => handleVerifyAdminOtp()}
+              disabled={isVerifyingOtp || otpDigits.join('').length < 4}
+              accessibilityRole="button"
+              accessibilityLabel="Verify and Sign In"
+            >
+              {isVerifyingOtp ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <>
+                  <CheckCircle2 size={18} color={COLORS.white} strokeWidth={2.4} />
+                  <Text style={styles.verifySubmitText}>Verify & Sign In</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feedback Dialog */}
       <FeedbackModal
         visible={modalState.visible}
         type={modalState.type}
@@ -453,24 +705,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+    borderColor: '#FECACA',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
     marginBottom: SPACING.md,
   },
   errorBannerText: {
     flex: 1,
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.regular,
     fontSize: 13,
     color: '#991B1B',
     lineHeight: 18,
   },
   formContainer: {
-    marginTop: SPACING.xs,
+    marginBottom: SPACING.md,
   },
   inputLabel: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.semibold,
     fontSize: 13,
     color: COLORS.heading,
     marginBottom: 6,
@@ -479,45 +730,49 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
     backgroundColor: '#F9FAFB',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: SPACING.md,
+    height: 50,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: SPACING.sm,
   },
   textInput: {
     flex: 1,
     fontFamily: FONTS.regular,
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.heading,
   },
-  eyeBtn: {
-    padding: 6,
+  eyeButton: {
+    position: 'absolute',
+    right: 14,
+    padding: 4,
   },
-  forgotBtn: {
-    alignSelf: 'flex-end',
+  forgotPasswordRow: {
+    alignItems: 'flex-end',
     marginTop: 8,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
-  forgotText: {
-    fontFamily: FONTS.semibold,
+  forgotPasswordText: {
+    fontFamily: FONTS.medium,
     fontSize: 13,
     color: COLORS.primary,
   },
-  loginButton: {
-    height: 52,
-    backgroundColor: '#111827',
+  signInButton: {
+    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.full,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: SPACING.xs,
     ...SHADOW.soft,
   },
-  loginButtonText: {
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  signInButtonText: {
     fontFamily: FONTS.bold,
     fontSize: 15,
     color: COLORS.white,
@@ -535,7 +790,7 @@ const styles = StyleSheet.create({
   dividerText: {
     fontFamily: FONTS.regular,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: COLORS.textSecondary,
     marginHorizontal: SPACING.md,
   },
   googleButton: {
@@ -543,72 +798,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 50,
-    backgroundColor: COLORS.white,
     borderRadius: RADIUS.full,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#E5E7EB',
-    ...SHADOW.subtle,
+    backgroundColor: COLORS.white,
+    marginBottom: SPACING.lg,
+    ...SHADOW.soft,
   },
-  googleIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+  googleIcon: {
+    width: 20,
+    height: 20,
     marginRight: 10,
-  },
-  googleGText: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    color: '#4285F4',
   },
   googleButtonText: {
     fontFamily: FONTS.semibold,
     fontSize: 14,
-    color: '#374151',
-  },
-  buttonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
+    color: COLORS.heading,
   },
   footerRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: SPACING.xl,
-    paddingBottom: SPACING.md,
+    justifyContent: 'center',
+    marginTop: SPACING.xs,
   },
   footerText: {
     fontFamily: FONTS.regular,
     fontSize: 14,
     color: COLORS.textSecondary,
   },
-  registerLink: {
+  signUpText: {
     fontFamily: FONTS.bold,
     fontSize: 14,
     color: COLORS.primary,
-    textDecorationLine: 'underline',
   },
-  modalOverlay: {
+  adminModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    padding: SPACING.lg,
   },
   adminModalCard: {
     width: '100%',
     maxWidth: 400,
     backgroundColor: COLORS.white,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.xxl,
     padding: SPACING.xl,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    ...SHADOW.soft,
   },
   adminModalHeader: {
     alignItems: 'center',
@@ -683,5 +920,126 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: 14,
     color: '#6B7280',
+  },
+  otpModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xxl,
+    padding: SPACING.xl,
+    ...SHADOW.soft,
+  },
+  otpModalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
+  },
+  otpHeaderTitleGroup: {
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  otpModalTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 18,
+    color: COLORS.heading,
+    marginBottom: 4,
+  },
+  otpModalSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+  },
+  otpModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 8,
+    marginBottom: SPACING.md,
+  },
+  otpErrorText: {
+    flex: 1,
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: '#991B1B',
+  },
+  digitsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginVertical: SPACING.md,
+  },
+  digitBox: {
+    flex: 1,
+    height: 58,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    textAlign: 'center',
+    fontFamily: FONTS.bold,
+    fontSize: 26,
+    color: COLORS.heading,
+  },
+  digitBoxFilled: {
+    borderColor: COLORS.primary,
+    backgroundColor: '#FFF7ED',
+  },
+  otpFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    marginTop: 4,
+  },
+  countdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  countdownText: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  resendBtnText: {
+    fontFamily: FONTS.semibold,
+    fontSize: 12,
+    color: COLORS.primary,
+  },
+  resendBtnDisabled: {
+    color: '#9CA3AF',
+  },
+  verifySubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: RADIUS.full,
+    ...SHADOW.soft,
+  },
+  verifySubmitDisabled: {
+    opacity: 0.6,
+  },
+  verifySubmitText: {
+    fontFamily: FONTS.bold,
+    fontSize: 14,
+    color: COLORS.white,
   },
 });

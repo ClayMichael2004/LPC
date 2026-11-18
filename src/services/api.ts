@@ -157,7 +157,7 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: ApiRequestOptions = {}
 ): Promise<T> {
-  const { idempotencyKey, timeoutMs = 5000, headers: customHeaders, ...rest } = options;
+  const { idempotencyKey, timeoutMs = 30000, headers: customHeaders, ...rest } = options;
   const token = await getAuthToken();
 
   const headers: Record<string, string> = {
@@ -209,6 +209,14 @@ export async function apiRequest<T = any>(
     }
 
     return (json?.data !== undefined ? json.data : json) as T;
+  } catch (err: any) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    if (err.name === 'AbortError' || err.message?.includes('aborted') || err.message?.includes('cancelled')) {
+      throw new ApiError('Request timed out. Please check your network connection and try again.', 408);
+    }
+    throw new ApiError(err?.message || 'Network request failed. Please check your connection.', 0);
   } finally {
     clearTimeout(timeoutId);
   }

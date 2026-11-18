@@ -116,8 +116,18 @@ func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string
 		if targetEmail == "" {
 			targetEmail = identifier
 		}
-		if err := s.emailService.SendOTP(targetEmail, code); err != nil {
-			return "", err
+		if s.cfg.Env == "test" {
+			if err := s.emailService.SendOTP(targetEmail, code); err != nil {
+				return "", err
+			}
+		} else {
+			// Dispatched in a background goroutine so client requests return in <50ms
+			// preventing any mobile fetch timeouts or cancelled network requests
+			go func(dest, c string) {
+				if err := s.emailService.SendOTP(dest, c); err != nil {
+					log.Printf("[EmailService Error] Background OTP delivery failed to %s: %v", dest, err)
+				}
+			}(targetEmail, code)
 		}
 	} else {
 		// WhatsApp / Phone OTP dispatch (ready for Africa's Talking WhatsApp integration)
