@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/littlepolocafe/backend/internal/domain"
@@ -20,12 +21,16 @@ func NewMemoryUserRepo() *MemoryUserRepo {
 		users: make(map[string]*domain.User),
 	}
 	now := domain.NowEAT()
+	adminEmail := os.Getenv("ADMIN_EMAIL")
+	if adminEmail == "" {
+		adminEmail = "admin@littlepolocafe.local"
+	}
 	r.users["usr-admin"] = &domain.User{
 		ID:        "usr-admin",
 		Name:      "Little Polo Cafe Owner",
 		Initials:  "LPC",
 		Phone:     "+254704769219",
-		Email:     "mikewillmakeit2004@gmail.com",
+		Email:     adminEmail,
 		Role:      domain.RoleAdmin,
 		CreatedAt: now,
 		UpdatedAt: now,

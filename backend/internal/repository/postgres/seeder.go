@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -11,15 +12,20 @@ import (
 func SeedDatabase(ctx context.Context, pool *pgxpool.Pool) error {
 	log.Println("[Seeder] Checking and seeding Little Polo Cafe data...")
 
+	adminEmail := os.Getenv("ADMIN_EMAIL")
+	if adminEmail == "" {
+		adminEmail = "admin@littlepolocafe.local"
+	}
+
 	// 1. Seed Users (Admin & Customer)
 	userQueries := `
 		INSERT INTO users (id, name, initials, phone, email, role, dob, created_at, updated_at)
 		VALUES 
-		('usr-admin', 'Little Polo Cafe Owner', 'LPC', '+254704769219', 'mikewillmakeit2004@gmail.com', 'admin', '01/01/1990', NOW(), NOW()),
+		('usr-admin', 'Little Polo Cafe Owner', 'LPC', '+254704769219', $1, 'admin', '01/01/1990', NOW(), NOW()),
 		('usr-1', 'Michael Clay', 'MC', '+254 712 345 678', 'michaelclay2225@gmail.com', 'customer', '15/06/1998', NOW(), NOW())
 		ON CONFLICT (id) DO NOTHING;
 	`
-	if _, err := pool.Exec(ctx, userQueries); err != nil {
+	if _, err := pool.Exec(ctx, userQueries, adminEmail); err != nil {
 		log.Printf("[Seeder Warning] User seed: %v", err)
 	}
 

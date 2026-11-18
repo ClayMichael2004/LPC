@@ -11,7 +11,10 @@ yarn-error.*
 *.tsbuildinfo
 /ios
 /android
-.env*.local
+.env
+.env.*
+!.env.example
+!backend/.env.example
 backend/bin/
 backend/.env
 *.exe

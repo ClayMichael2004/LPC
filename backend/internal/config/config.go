@@ -26,7 +26,7 @@ type Config struct {
 }
 
 func loadDotEnv() {
-	candidates := []string{".env", "../.env", "../../.env"}
+	candidates := []string{".env", "../.env", "../../.env", "../../../.env"}
 	for _, path := range candidates {
 		f, err := os.Open(path)
 		if err != nil {
@@ -63,19 +63,19 @@ func Load() *Config {
 	return &Config{
 		Port:               getEnv("PORT", "8085"),
 		Env:                getEnv("ENV", "development"),
-		DatabaseURL:        getEnv("DATABASE_URL", "postgres://postgres:postgrespassword@localhost:5435/lpc_db?sslmode=disable"),
+		DatabaseURL:        getEnv("DATABASE_URL", ""),
 		RedisURL:           getEnv("REDIS_URL", "localhost:6380"),
 		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
-		JWTSecret:          getEnv("JWT_SECRET", "little-polo-cafe-secret-key-east-africa-2026"),
+		JWTSecret:          getEnv("JWT_SECRET", "dev-ephemeral-jwt-secret-change-in-env"),
 		JWTExpiryHours:     getEnvInt("JWT_EXPIRY_HOURS", 168),
-		OTPSenderEmail:     getEnv("OTP_SENDER_EMAIL", "mikewillmakeit2004@gmail.com"),
+		OTPSenderEmail:     getEnv("OTP_SENDER_EMAIL", "no-reply@littlepolocafe.local"),
 		SMTPHost:           getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:           getEnvInt("SMTP_PORT", 587),
-		SMTPUser:           getEnv("SMTP_USER", "mikewillmakeit2004@gmail.com"),
+		SMTPUser:           getEnv("SMTP_USER", ""),
 		SMTPPassword:       rawSMTPPass,
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
-		AdminEmail:         getEnv("ADMIN_EMAIL", "mikewillmakeit2004@gmail.com"),
-		AdminPassword:      getEnv("ADMIN_PASSWORD", "AdminLPC2026!"),
+		AdminEmail:         getEnv("ADMIN_EMAIL", ""),
+		AdminPassword:      getEnv("ADMIN_PASSWORD", ""),
 	}
 }
 
