@@ -107,6 +107,33 @@ func TestAuthService_EmailOTPWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, authResp.Token)
 	assert.Equal(t, email, authResp.User.Email)
+
+	// 3. Re-using the same OTP a second time -> Fail
+	_, err = authService.VerifyOTP(ctx, email, code, "Mike Admin")
+	assert.ErrorIs(t, err, service.ErrInvalidOTP)
+}
+
+func TestAuthService_OTPExpiresAfter5Minutes(t *testing.T) {
+	cfg := config.Load()
+	cfg.Env = "test"
+	userStore := newMockUserStore()
+	emailService := service.NewEmailService(cfg)
+	authService := service.NewAuthService(cfg, userStore, emailService, nil)
+
+	ctx := context.Background()
+	email := "michaelclay2225@gmail.com"
+
+	// 1. Request 4-digit OTP
+	code, err := authService.RequestOTP(ctx, "email", email)
+	require.NoError(t, err)
+	assert.Len(t, code, 4)
+
+	// 2. Simulate 5 minutes passing
+	authService.ExpireOTPForTest(ctx, email)
+
+	// 3. Verify with the exact code after 5 minutes -> Must fail with ErrExpiredOTP
+	_, err = authService.VerifyOTP(ctx, email, code, "Michael Clay")
+	assert.ErrorIs(t, err, service.ErrExpiredOTP)
 }
 
 func TestAuthService_AdminLogin(t *testing.T) {

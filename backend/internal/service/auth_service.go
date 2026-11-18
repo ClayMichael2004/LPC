@@ -20,8 +20,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const OTPExpiryDuration = 5 * time.Minute
+
 var (
 	ErrInvalidOTP         = errors.New("invalid or expired OTP code")
+	ErrExpiredOTP         = errors.New("OTP code has expired (valid for 5 minutes)")
 	ErrInvalidAdminAuth   = errors.New("invalid admin email or password")
 	ErrInvalidCredentials = errors.New("invalid email/phone or password")
 	ErrUserAlreadyExists  = errors.New("an account with this email or phone already exists")
@@ -62,24 +65,33 @@ func NewAuthService(
 	}
 }
 
+func normalizeOTPIdentifier(identifier string) string {
+	identifier = strings.TrimSpace(identifier)
+	if strings.Contains(identifier, "@") {
+		return strings.ToLower(identifier)
+	}
+	return identifier
+}
+
 // RequestOTP generates a 4-digit code, stores it with 5 min TTL, and dispatches via Email or SMS.
 func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string) (string, error) {
-	identifier = strings.TrimSpace(identifier)
+	identifier = normalizeOTPIdentifier(identifier)
 	code, err := generate4DigitCode()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate OTP: %w", err)
 	}
 
-	ttl := 5 * time.Minute
+	ttl := OTPExpiryDuration
+	expiresAt := time.Now().Add(ttl)
 	redisKey := fmt.Sprintf("lpc:otp:%s", identifier)
+
+	// Always store with explicit 5-minute expiration timestamp in localOTP so we can detect expired codes
+	s.localOTP.Store(identifier, otpItem{code: code, expiresAt: expiresAt})
 
 	if s.redisClient != nil {
 		if err := s.redisClient.Set(ctx, redisKey, code, ttl).Err(); err != nil {
-			log.Printf("[Redis Warning] Failed to store OTP in Redis: %v. Storing in memory.", err)
-			s.localOTP.Store(identifier, otpItem{code: code, expiresAt: time.Now().Add(ttl)})
+			log.Printf("[Redis Warning] Failed to store OTP in Redis: %v. Using in-memory 5m TTL store.", err)
 		}
-	} else {
-		s.localOTP.Store(identifier, otpItem{code: code, expiresAt: time.Now().Add(ttl)})
 	}
 
 	if otpType == "email" {
@@ -89,7 +101,7 @@ func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string
 	} else {
 		// Phone OTP mock
 		log.Printf("==================================================================")
-		log.Printf("[PHONE SMS OTP DISPATCH] To Phone: %s", identifier)
+		log.Printf("[PHONE SMS OTP DISPATCH] To Phone: %s (Expires in 5 minutes)", identifier)
 		log.Printf("[PHONE SMS CODE]         >>> %s <<<", code)
 		log.Printf("==================================================================")
 	}
@@ -97,28 +109,52 @@ func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string
 	return code, nil
 }
 
-// VerifyOTP checks the submitted code, creates or gets the customer, and returns a JWT.
+// ExpireOTPForTest artificially backdates an OTP's expiration timestamp for testing the 5-minute expiry window.
+func (s *AuthService) ExpireOTPForTest(ctx context.Context, identifier string) {
+	identifier = normalizeOTPIdentifier(identifier)
+	if item, ok := s.localOTP.Load(identifier); ok {
+		stored := item.(otpItem)
+		stored.expiresAt = time.Now().Add(-1 * time.Second)
+		s.localOTP.Store(identifier, stored)
+	}
+	if s.redisClient != nil {
+		_ = s.redisClient.Del(ctx, fmt.Sprintf("lpc:otp:%s", identifier)).Err()
+	}
+}
+
+// VerifyOTP checks the submitted code (strictly within the 5-minute validity window), creates or gets the customer, and returns a JWT.
 func (s *AuthService) VerifyOTP(ctx context.Context, identifier, code, name string) (*domain.AuthResponse, error) {
-	identifier = strings.TrimSpace(identifier)
+	identifier = normalizeOTPIdentifier(identifier)
 	code = strings.TrimSpace(code)
 
 	var validCode string
+	var isExpired bool
 	redisKey := fmt.Sprintf("lpc:otp:%s", identifier)
 
-	if s.redisClient != nil {
+	// Check local 5-minute expiration tracker first
+	if item, ok := s.localOTP.Load(identifier); ok {
+		stored := item.(otpItem)
+		if time.Now().Before(stored.expiresAt) {
+			validCode = stored.code
+		} else {
+			isExpired = true
+			s.localOTP.Delete(identifier)
+			if s.redisClient != nil {
+				_ = s.redisClient.Del(ctx, redisKey).Err()
+			}
+		}
+	}
+
+	// Fallback to Redis if not in local memory and not already flagged expired
+	if validCode == "" && !isExpired && s.redisClient != nil {
 		val, err := s.redisClient.Get(ctx, redisKey).Result()
 		if err == nil {
 			validCode = val
 		}
 	}
 
-	if validCode == "" {
-		if item, ok := s.localOTP.Load(identifier); ok {
-			stored := item.(otpItem)
-			if time.Now().Before(stored.expiresAt) {
-				validCode = stored.code
-			}
-		}
+	if isExpired {
+		return nil, ErrExpiredOTP
 	}
 
 	// Only allow "1234" in unit test environment
@@ -130,7 +166,7 @@ func (s *AuthService) VerifyOTP(ctx context.Context, identifier, code, name stri
 		}
 	}
 
-	// Delete used OTP
+	// Delete used OTP immediately (single-use within 5 minutes)
 	if s.redisClient != nil {
 		_ = s.redisClient.Del(ctx, redisKey).Err()
 	}

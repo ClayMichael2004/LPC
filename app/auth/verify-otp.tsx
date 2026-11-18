@@ -52,6 +52,14 @@ export function maskPhone(rawPhone: string): string {
   return trimmed;
 }
 
+const OTP_VALIDITY_SECONDS = 5 * 60; // 5 minutes (300 seconds)
+
+function formatMinutesSeconds(totalSeconds: number): string {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -80,6 +88,8 @@ export default function VerifyOtpScreen() {
   const [isResending, setIsResending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [countdown, setCountdown] = useState(45);
+  const [expirySeconds, setExpirySeconds] = useState(OTP_VALIDITY_SECONDS);
+  const isCodeExpired = expirySeconds <= 0;
 
   const digitRefs = [
     useRef<TextInput>(null),
@@ -110,7 +120,7 @@ export default function VerifyOtpScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Resend countdown timer
+  // Resend cooldown timer (45s)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (countdown > 0) {
@@ -118,6 +128,15 @@ export default function VerifyOtpScreen() {
     }
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  // 5-minute OTP validity timer (300s)
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (expirySeconds > 0) {
+      timer = setTimeout(() => setExpirySeconds((prev) => Math.max(0, prev - 1)), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [expirySeconds]);
 
   const handleOtpDigitChange = (index: number, value: string) => {
     if (value.length > 1) {
@@ -157,12 +176,25 @@ export default function VerifyOtpScreen() {
     setTimeout(() => {
       setIsResending(false);
       setCountdown(45);
+      setExpirySeconds(OTP_VALIDITY_SECONDS);
       setOtpDigits(['', '', '', '']);
       digitRefs[0].current?.focus();
     }, 900);
   };
 
   const handleVerifyOtp = async () => {
+    if (isCodeExpired) {
+      setFeedbackState({
+        visible: true,
+        type: 'error',
+        title: 'Code Expired',
+        message:
+          'This 4-digit code has expired after 5 minutes. Please tap Resend OTP Code to receive a new code.',
+        onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
+      });
+      return;
+    }
+
     const code = otpDigits.join('');
     if (code.length < 4) {
       setFeedbackState({
@@ -195,22 +227,16 @@ export default function VerifyOtpScreen() {
       });
     } catch (err) {
       setIsVerifying(false);
-      if (err instanceof ApiError) {
-        setFeedbackState({
-          visible: true,
-          type: 'error',
-          title: 'Verification Failed',
-          message: err.message,
-          onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
-        });
-        return;
-      }
-      // Offline fallback
-      router.replace({
-        pathname: '/auth/reset-password',
-        params: {
-          destination,
-        },
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to verify code right now. Please check your connection and try again.';
+      setFeedbackState({
+        visible: true,
+        type: 'error',
+        title: 'Verification Failed',
+        message,
+        onPrimaryPress: () => setFeedbackState((s) => ({ ...s, visible: false })),
       });
     }
   };
@@ -260,6 +286,16 @@ export default function VerifyOtpScreen() {
         <View style={styles.messageBox}>
           <Text style={styles.sentMessageTitle}>{sentMessage}</Text>
           <Text style={styles.enterCodeSubtitle}>Enter the 4-digit code below</Text>
+          <Text
+            style={[
+              styles.expiryTimerText,
+              isCodeExpired && styles.expiryTimerTextExpired,
+            ]}
+          >
+            {isCodeExpired
+              ? 'Code expired (5 min limit) — please resend a new code'
+              : `Code expires in ${formatMinutesSeconds(expirySeconds)}`}
+          </Text>
         </View>
 
         {/* 4-Digit OTP Input Boxes */}
@@ -403,6 +439,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
+    marginBottom: 6,
+  },
+  expiryTimerText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  expiryTimerTextExpired: {
+    color: '#DC2626',
+    fontFamily: FONTS.semibold,
   },
   otpInputsRow: {
     flexDirection: 'row',

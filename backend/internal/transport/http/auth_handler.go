@@ -85,6 +85,7 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 		"message":    "Verification code sent successfully",
 		"identifier": req.Identifier,
 		"type":       req.Type,
+		"expiresIn":  int(service.OTPExpiryDuration.Seconds()),
 	})
 }
 
@@ -98,6 +99,10 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 
 	authResp, err := h.authService.VerifyOTP(c.Request.Context(), req.Identifier, req.Code, req.Name)
 	if err != nil {
+		if errors.Is(err, service.ErrExpiredOTP) {
+			JSONError(c, http.StatusUnauthorized, "This verification code has expired. Codes are valid for 5 minutes — please request a new code.")
+			return
+		}
 		if errors.Is(err, service.ErrInvalidOTP) {
 			JSONError(c, http.StatusUnauthorized, "Invalid or expired verification code.")
 			return
