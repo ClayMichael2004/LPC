@@ -16,6 +16,7 @@ import {
   Product,
   SpecialPromo,
   UserProfile,
+  UserPreferences,
 } from '../types';
 
 function resolveBackendHost(): string {
@@ -378,6 +379,18 @@ export const notificationsApi = {
   getCustomerNotifications: () => apiRequest<any[]>('/notifications', { method: 'GET' }),
   markNotificationRead: (id: string) =>
     apiRequest<{ message: string }>(`/notifications/${id}/read`, { method: 'PATCH' }),
+};
+
+export const userApi = {
+  getPreferences: (userId?: string) =>
+    apiRequest<UserPreferences>(`/preferences${userId ? `?userId=${userId}` : ''}`, {
+      method: 'GET',
+    }),
+  updatePreferences: (prefs: Partial<UserPreferences> & { userId?: string }) =>
+    apiRequest<UserPreferences>('/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(prefs),
+    }),
 };
 
 export const ordersApi = {

@@ -234,6 +234,24 @@ export default function NotificationsScreen() {
     adminApi.markNotificationRead(item.id).catch(() => {});
   };
 
+  const handleMarkSingleCustomerRead = async (item: CustomerNotificationItem) => {
+    if (item.read) return;
+    setCustomerNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
+    );
+    try {
+      const raw = await AsyncStorage.getItem(storageKey);
+      const readIds: string[] = raw ? JSON.parse(raw) : [];
+      if (!readIds.includes(item.id)) {
+        readIds.push(item.id);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(readIds));
+      }
+      notificationsApi.markNotificationRead(item.id).catch(() => {});
+    } catch {
+      // Ignore write error
+    }
+  };
+
   const formatAdminTimestamp = (isoStr: string) => {
     try {
       const d = new Date(isoStr);
@@ -427,12 +445,15 @@ export default function NotificationsScreen() {
           // Customer Notifications
           filteredCustomerNotifs.length > 0 ? (
             filteredCustomerNotifs.map((item) => (
-              <View
+              <Pressable
                 key={item.id}
                 style={[
                   styles.notificationCard,
                   !item.read && styles.notificationCardUnread,
                 ]}
+                onPress={() => handleMarkSingleCustomerRead(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Notification: ${item.title}`}
               >
                 <View
                   style={[
@@ -457,7 +478,7 @@ export default function NotificationsScreen() {
                   <Text style={styles.itemMessage}>{item.message}</Text>
                   <Text style={styles.itemTime}>{item.time}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))
           ) : (
             <View style={styles.emptyContainer}>

@@ -35,13 +35,14 @@ type AdminService struct {
 	menuService    *MenuService
 	activityRepo   ActivityStore
 
-	mu             sync.RWMutex
-	broadcastLogs  []domain.BroadcastLog
-	adminNotifs    []domain.AdminNotification
-	customerNotifs []domain.CustomerNotification
-	specials       map[string]*domain.SpecialPromo
-	gallery        map[string]*domain.GalleryPhoto
-	badges         map[string]*domain.ActivityBadge
+	mu               sync.RWMutex
+	broadcastLogs    []domain.BroadcastLog
+	adminNotifs      []domain.AdminNotification
+	customerNotifs   []domain.CustomerNotification
+	userPrefs        map[string]domain.UserPreferences
+	specials         map[string]*domain.SpecialPromo
+	gallery          map[string]*domain.GalleryPhoto
+	badges           map[string]*domain.ActivityBadge
 	customActivities map[string]*domain.Activity
 }
 
@@ -59,6 +60,7 @@ func NewAdminService(
 		broadcastLogs:    make([]domain.BroadcastLog, 0),
 		adminNotifs:      make([]domain.AdminNotification, 0),
 		customerNotifs:   make([]domain.CustomerNotification, 0),
+		userPrefs:        make(map[string]domain.UserPreferences),
 		specials:         make(map[string]*domain.SpecialPromo),
 		gallery:          make(map[string]*domain.GalleryPhoto),
 		badges:           make(map[string]*domain.ActivityBadge),
@@ -234,8 +236,33 @@ func NewAdminService(
 }
 
 // ----------------------------------------------------------------------------
-// Bulk Communications
+// Bulk Communications & User Preferences
 // ----------------------------------------------------------------------------
+
+func (s *AdminService) GetUserPreferences(ctx context.Context, userID string) domain.UserPreferences {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if pref, ok := s.userPrefs[userID]; ok {
+		return pref
+	}
+	// Default: all communication channels opted in
+	return domain.UserPreferences{
+		UserID:    userID,
+		SMS:       true,
+		WhatsApp:  true,
+		Email:     true,
+		Promo:     true,
+		UpdatedAt: domain.NowEAT(),
+	}
+}
+
+func (s *AdminService) UpdateUserPreferences(ctx context.Context, pref domain.UserPreferences) domain.UserPreferences {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pref.UpdatedAt = domain.NowEAT()
+	s.userPrefs[pref.UserID] = pref
+	return pref
+}
 
 func (s *AdminService) GetAudience(ctx context.Context, channel string) ([]*domain.User, error) {
 	allUsers, err := s.userRepo.GetAll(ctx)
@@ -245,16 +272,29 @@ func (s *AdminService) GetAudience(ctx context.Context, channel string) ([]*doma
 
 	var eligible []*domain.User
 	for _, u := range allUsers {
-		// Only target registered customers who have the target communication channel
+		// Only target registered customers
 		if u.Role == domain.RoleAdmin {
 			continue
 		}
-		if channel == "email" && strings.Contains(u.Email, "@") {
-			eligible = append(eligible, u)
-		} else if channel == "whatsapp" && len(strings.TrimSpace(u.Phone)) >= 9 {
-			eligible = append(eligible, u)
+
+		// Retrieve customer preferences
+		pref := s.GetUserPreferences(ctx, u.ID)
+
+		if channel == "email" {
+			// Must have valid email AND customer has email preferences enabled
+			if strings.Contains(u.Email, "@") && pref.Email {
+				eligible = append(eligible, u)
+			}
+		} else if channel == "whatsapp" {
+			// Must have phone AND customer has whatsapp preferences enabled
+			if len(strings.TrimSpace(u.Phone)) >= 9 && pref.WhatsApp {
+				eligible = append(eligible, u)
+			}
 		} else if channel == "in-app" {
-			eligible = append(eligible, u)
+			// In-app notices delivered to customers who opted in to promotional/in-app notices
+			if pref.Promo {
+				eligible = append(eligible, u)
+			}
 		}
 	}
 	return eligible, nil

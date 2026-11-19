@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Switch,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -14,6 +15,8 @@ import { ChevronLeft, MessageSquare, Mail, Bell, Sparkles } from 'lucide-react-n
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import FeedbackModal from '../../src/components/FeedbackModal';
+import RefreshSpinnerHeader from '../../src/components/RefreshSpinnerHeader';
+import { userApi } from '../../src/services/api';
 
 const COMM_PREFS_KEY_PREFIX = '@lpc_comm_prefs_v1_';
 
@@ -26,29 +29,115 @@ export default function CommunicationPreferencesScreen() {
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [promoEnabled, setPromoEnabled] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const storageKey = `${COMM_PREFS_KEY_PREFIX}${user?.id || 'guest'}`;
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(storageKey);
-        if (!mounted || !raw) return;
+  const fetchPreferences = useCallback(async () => {
+    // 1. Try local cache first for instant UI response
+    try {
+      const raw = await AsyncStorage.getItem(storageKey);
+      if (raw) {
         const parsed = JSON.parse(raw);
         if (typeof parsed.smsEnabled === 'boolean') setSmsEnabled(parsed.smsEnabled);
         if (typeof parsed.whatsappEnabled === 'boolean') setWhatsappEnabled(parsed.whatsappEnabled);
         if (typeof parsed.emailEnabled === 'boolean') setEmailEnabled(parsed.emailEnabled);
         if (typeof parsed.promoEnabled === 'boolean') setPromoEnabled(parsed.promoEnabled);
-      } catch {
-        // Keep defaults on read error
       }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [storageKey]);
+    } catch {
+      // Ignore cache read error
+    }
+
+    // 2. Fetch authoritative state from backend API
+    try {
+      const remote = await userApi.getPreferences(user?.id);
+      if (remote) {
+        if (typeof remote.sms === 'boolean') setSmsEnabled(remote.sms);
+        if (typeof remote.whatsapp === 'boolean') setWhatsappEnabled(remote.whatsapp);
+        if (typeof remote.email === 'boolean') setEmailEnabled(remote.email);
+        if (typeof remote.promo === 'boolean') setPromoEnabled(remote.promo);
+
+        // Sync remote to local cache
+        await AsyncStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            smsEnabled: remote.sms,
+            whatsappEnabled: remote.whatsapp,
+            emailEnabled: remote.email,
+            promoEnabled: remote.promo,
+          })
+        );
+      }
+    } catch {
+      // Keep local cache if offline
+    }
+  }, [storageKey, user?.id]);
+
+  useEffect(() => {
+    fetchPreferences();
+  }, [fetchPreferences]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchPreferences();
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 500);
+    }
+  };
+
+  // Immediate toggle handler: updates state, writes to AsyncStorage, and notifies backend immediately
+  const handleToggle = async (key: 'sms' | 'whatsapp' | 'email' | 'promo', val: boolean) => {
+    let nextSms = smsEnabled;
+    let nextWhatsapp = whatsappEnabled;
+    let nextEmail = emailEnabled;
+    let nextPromo = promoEnabled;
+
+    if (key === 'sms') {
+      setSmsEnabled(val);
+      nextSms = val;
+    } else if (key === 'whatsapp') {
+      setWhatsappEnabled(val);
+      nextWhatsapp = val;
+    } else if (key === 'email') {
+      setEmailEnabled(val);
+      nextEmail = val;
+    } else if (key === 'promo') {
+      setPromoEnabled(val);
+      nextPromo = val;
+    }
+
+    // Immediately persist to AsyncStorage
+    try {
+      await AsyncStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          smsEnabled: nextSms,
+          whatsappEnabled: nextWhatsapp,
+          emailEnabled: nextEmail,
+          promoEnabled: nextPromo,
+        })
+      );
+    } catch {
+      // Ignore write error
+    }
+
+    // Immediately sync to backend API so admin audience count reflects changes in real-time
+    try {
+      await userApi.updatePreferences({
+        userId: user?.id,
+        sms: nextSms,
+        whatsapp: nextWhatsapp,
+        email: nextEmail,
+        promo: nextPromo,
+      });
+    } catch {
+      // Silently handle if offline; AsyncStorage will retain preference
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -61,8 +150,15 @@ export default function CommunicationPreferencesScreen() {
           promoEnabled,
         })
       );
+      await userApi.updatePreferences({
+        userId: user?.id,
+        sms: smsEnabled,
+        whatsapp: whatsappEnabled,
+        email: emailEnabled,
+        promo: promoEnabled,
+      });
     } catch {
-      // Ignore storage error
+      // Fallback
     }
     setShowSuccessModal(true);
   };
@@ -101,7 +197,17 @@ export default function CommunicationPreferencesScreen() {
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 20) + 80 },
         ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={['transparent']}
+          />
+        }
       >
+        <RefreshSpinnerHeader refreshing={isRefreshing} label="Refreshing preferences..." />
+
         <Text style={styles.sectionDesc}>
           Select how you would like Little Polo Cafe to notify you regarding orders, receipts, and weekend painting events.
         </Text>
@@ -120,7 +226,7 @@ export default function CommunicationPreferencesScreen() {
             </View>
             <Switch
               value={smsEnabled}
-              onValueChange={setSmsEnabled}
+              onValueChange={(val) => handleToggle('sms', val)}
               trackColor={{ false: '#D1D5DB', true: COLORS.primary }}
               thumbColor={COLORS.white}
             />
@@ -141,7 +247,7 @@ export default function CommunicationPreferencesScreen() {
             </View>
             <Switch
               value={whatsappEnabled}
-              onValueChange={setWhatsappEnabled}
+              onValueChange={(val) => handleToggle('whatsapp', val)}
               trackColor={{ false: '#D1D5DB', true: COLORS.primary }}
               thumbColor={COLORS.white}
             />
@@ -162,7 +268,7 @@ export default function CommunicationPreferencesScreen() {
             </View>
             <Switch
               value={emailEnabled}
-              onValueChange={setEmailEnabled}
+              onValueChange={(val) => handleToggle('email', val)}
               trackColor={{ false: '#D1D5DB', true: COLORS.primary }}
               thumbColor={COLORS.white}
             />
@@ -183,7 +289,7 @@ export default function CommunicationPreferencesScreen() {
             </View>
             <Switch
               value={promoEnabled}
-              onValueChange={setPromoEnabled}
+              onValueChange={(val) => handleToggle('promo', val)}
               trackColor={{ false: '#D1D5DB', true: COLORS.primary }}
               thumbColor={COLORS.white}
             />

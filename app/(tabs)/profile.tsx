@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, Pressable, ScrollView, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Clock,
@@ -22,27 +23,44 @@ export default function ProfileScreen() {
   const isAdmin = user?.role === 'admin';
   const [unreadNotifs, setUnreadNotifs] = useState(0);
 
-  useEffect(() => {
-    if (isAdmin) {
-      adminApi
-        .getNotifications()
-        .then((list) => {
-          if (Array.isArray(list)) {
-            setUnreadNotifs(list.filter((n) => !n.read).length);
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      if (isAdmin) {
+        adminApi
+          .getNotifications()
+          .then((list) => {
+            if (isMounted && Array.isArray(list)) {
+              setUnreadNotifs(list.filter((n) => !n.read).length);
+            }
+          })
+          .catch(() => {});
+      } else {
+        const storageKey = `@lpc_read_notifications_v1_${user?.id || 'guest'}`;
+        Promise.all([
+          notificationsApi.getCustomerNotifications().catch(() => []),
+          AsyncStorage.getItem(storageKey).catch(() => null),
+        ]).then(([list, rawReadIds]) => {
+          if (!isMounted) return;
+          let readIds: string[] = [];
+          try {
+            if (rawReadIds) readIds = JSON.parse(rawReadIds);
+          } catch {
+            // Ignore parse error
           }
-        })
-        .catch(() => {});
-    } else {
-      notificationsApi
-        .getCustomerNotifications()
-        .then((list) => {
           if (Array.isArray(list)) {
-            setUnreadNotifs(list.filter((n) => !n.read).length);
+            const unreadCount = list.filter(
+              (n: any) => !n.read && !readIds.includes(n.id)
+            ).length;
+            setUnreadNotifs(unreadCount);
           }
-        })
-        .catch(() => {});
-    }
-  }, [isAdmin]);
+        });
+      }
+      return () => {
+        isMounted = false;
+      };
+    }, [isAdmin, user?.id])
+  );
 
   const displayName = isAuthenticated && user ? user.name : 'Guest';
   const displayInitials = isAuthenticated && user ? user.initials : 'LP';

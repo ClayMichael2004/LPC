@@ -189,6 +189,15 @@ export interface AdminNotification {
   read: boolean;
 }
 
+export interface UserPreferences {
+  userId?: string;
+  sms: boolean;
+  whatsapp: boolean;
+  email: boolean;
+  promo: boolean;
+  updatedAt?: string;
+}
+
 export interface AdminOrdersResponse {
   orders: Order[];
   total: number;

@@ -656,3 +656,35 @@ func (h *AdminHandler) UploadImage(c *gin.Context) {
 		"filename": filename,
 	})
 }
+
+// ----------------------------------------------------------------------------
+// Customer Preferences
+// ----------------------------------------------------------------------------
+
+func (h *AdminHandler) GetUserPreferences(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		userID = c.Query("userId")
+	}
+	if userID == "" {
+		userID = "guest"
+	}
+	pref := h.adminService.GetUserPreferences(c.Request.Context(), userID)
+	JSONSuccess(c, http.StatusOK, pref)
+}
+
+func (h *AdminHandler) UpdateUserPreferences(c *gin.Context) {
+	var req domain.UserPreferences
+	if err := c.ShouldBindJSON(&req); err != nil {
+		JSONError(c, http.StatusBadRequest, "Invalid preferences payload")
+		return
+	}
+	userID := c.GetString("user_id")
+	if userID != "" {
+		req.UserID = userID
+	} else if req.UserID == "" {
+		req.UserID = "guest"
+	}
+	updated := h.adminService.UpdateUserPreferences(c.Request.Context(), req)
+	JSONSuccess(c, http.StatusOK, updated)
+}

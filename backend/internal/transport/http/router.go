@@ -100,6 +100,10 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		api.GET("/notifications", h.AdminHandler.GetCustomerNotifications)
 		api.PATCH("/notifications/:id/read", h.AdminHandler.MarkCustomerNotificationRead)
 
+		// Customer Communication Preferences (Query or Header backed)
+		api.GET("/preferences", h.AdminHandler.GetUserPreferences)
+		api.PUT("/preferences", h.AdminHandler.UpdateUserPreferences)
+
 		// Canva-style Image Upload endpoint
 		api.POST("/upload", h.AdminHandler.UploadImage)
 

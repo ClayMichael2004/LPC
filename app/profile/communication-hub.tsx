@@ -234,18 +234,37 @@ export default function CommunicationHubScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: channel === 'email' }}
           >
-            <Mail
-              size={18}
-              color={channel === 'email' ? COLORS.serviceBlueIcon : COLORS.textSecondary}
-              strokeWidth={2.2}
-            />
-            <Text
+            <View
               style={[
-                styles.channelTabText,
-                channel === 'email' && styles.channelTabTextActiveEmail,
+                styles.channelIconCircle,
+                {
+                  backgroundColor: channel === 'email' ? '#BFDBFE' : '#DBEAFE',
+                },
               ]}
             >
-              Email Broadcast
+              <Mail
+                size={18}
+                color={channel === 'email' ? COLORS.serviceBlueIcon : '#07345F'}
+                strokeWidth={2.2}
+              />
+            </View>
+            <Text
+              style={[
+                styles.channelTabTitle,
+                channel === 'email' && styles.channelTabTitleActiveEmail,
+              ]}
+              numberOfLines={1}
+            >
+              Email
+            </Text>
+            <Text
+              style={[
+                styles.channelTabSubtitle,
+                channel === 'email' && styles.channelTabSubtitleActiveEmail,
+              ]}
+              numberOfLines={1}
+            >
+              Broadcast
             </Text>
           </Pressable>
 
@@ -258,18 +277,37 @@ export default function CommunicationHubScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: channel === 'whatsapp' }}
           >
-            <MessageCircle
-              size={18}
-              color={channel === 'whatsapp' ? '#075B35' : COLORS.textSecondary}
-              strokeWidth={2.2}
-            />
-            <Text
+            <View
               style={[
-                styles.channelTabText,
-                channel === 'whatsapp' && styles.channelTabTextActiveWhatsApp,
+                styles.channelIconCircle,
+                {
+                  backgroundColor: channel === 'whatsapp' ? '#BBF7D0' : '#DCFCE7',
+                },
               ]}
             >
-              WhatsApp Updates
+              <MessageCircle
+                size={18}
+                color={channel === 'whatsapp' ? '#075B35' : '#075B35'}
+                strokeWidth={2.2}
+              />
+            </View>
+            <Text
+              style={[
+                styles.channelTabTitle,
+                channel === 'whatsapp' && styles.channelTabTitleActiveWhatsApp,
+              ]}
+              numberOfLines={1}
+            >
+              WhatsApp
+            </Text>
+            <Text
+              style={[
+                styles.channelTabSubtitle,
+                channel === 'whatsapp' && styles.channelTabSubtitleActiveWhatsApp,
+              ]}
+              numberOfLines={1}
+            >
+              Updates
             </Text>
           </Pressable>
 
@@ -282,18 +320,37 @@ export default function CommunicationHubScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: channel === 'in-app' }}
           >
-            <Bell
-              size={18}
-              color={channel === 'in-app' ? '#4C1D95' : COLORS.textSecondary}
-              strokeWidth={2.2}
-            />
-            <Text
+            <View
               style={[
-                styles.channelTabText,
-                channel === 'in-app' && styles.channelTabTextActiveInApp,
+                styles.channelIconCircle,
+                {
+                  backgroundColor: channel === 'in-app' ? '#DDD6FE' : '#E5D9FF',
+                },
               ]}
             >
-              In-App Notice
+              <Bell
+                size={18}
+                color={channel === 'in-app' ? '#4C1D95' : '#4C1D95'}
+                strokeWidth={2.2}
+              />
+            </View>
+            <Text
+              style={[
+                styles.channelTabTitle,
+                channel === 'in-app' && styles.channelTabTitleActiveInApp,
+              ]}
+              numberOfLines={1}
+            >
+              In-App
+            </Text>
+            <Text
+              style={[
+                styles.channelTabSubtitle,
+                channel === 'in-app' && styles.channelTabSubtitleActiveInApp,
+              ]}
+              numberOfLines={1}
+            >
+              Notice
             </Text>
           </Pressable>
         </View>
@@ -305,7 +362,7 @@ export default function CommunicationHubScreen() {
               <View style={styles.audienceIconCircle}>
                 <Users size={18} color={COLORS.primary} strokeWidth={2.2} />
               </View>
-              <View>
+              <View style={styles.audienceTextCol}>
                 {loadingAudience ? (
                   <ActivityIndicator size="small" color={COLORS.primary} />
                 ) : (
@@ -313,12 +370,12 @@ export default function CommunicationHubScreen() {
                     {audienceCount} Eligible Customer{audienceCount === 1 ? '' : 's'}
                   </Text>
                 )}
-                <Text style={styles.audienceSubText}>
+                <Text style={styles.audienceSubText} numberOfLines={2}>
                   {channel === 'email'
                     ? 'Opted in to Email specials & receipts'
                     : channel === 'whatsapp'
                     ? 'Opted in to WhatsApp updates'
-                    : 'Delivers to customer in-app notification center (Profile Bell)'}
+                    : 'Delivers to in-app notification center'}
                 </Text>
               </View>
             </View>
@@ -685,25 +742,25 @@ const styles = StyleSheet.create({
   },
   channelTabs: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginBottom: SPACING.lg,
   },
   channelTab: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     paddingVertical: 12,
+    paddingHorizontal: 4,
     borderRadius: RADIUS.xl,
     backgroundColor: COLORS.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: COLORS.borderLight,
     ...SHADOW.soft,
   },
   channelTabActiveEmail: {
     backgroundColor: COLORS.serviceBlueTint,
-    borderColor: '#BFDBFE',
+    borderColor: '#93C5FD',
   },
   channelTabActiveWhatsApp: {
     backgroundColor: '#DCFCE7',
@@ -713,18 +770,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5D9FF',
     borderColor: '#C4B5FD',
   },
-  channelTabText: {
-    fontFamily: FONTS.semibold,
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  channelIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
-  channelTabTextActiveEmail: {
+  channelTabTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    color: COLORS.heading,
+    textAlign: 'center',
+  },
+  channelTabTitleActiveEmail: {
     color: COLORS.serviceBlueIcon,
   },
-  channelTabTextActiveWhatsApp: {
+  channelTabTitleActiveWhatsApp: {
     color: '#075B35',
   },
-  channelTabTextActiveInApp: {
+  channelTabTitleActiveInApp: {
+    color: '#4C1D95',
+  },
+  channelTabSubtitle: {
+    fontFamily: FONTS.medium,
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  channelTabSubtitleActiveEmail: {
+    color: '#07345F',
+  },
+  channelTabSubtitleActiveWhatsApp: {
+    color: '#075B35',
+  },
+  channelTabSubtitleActiveInApp: {
     color: '#4C1D95',
   },
   audienceCard: {
@@ -744,7 +826,11 @@ const styles = StyleSheet.create({
   audienceLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  audienceTextCol: {
     flex: 1,
   },
   audienceIconCircle: {
@@ -764,7 +850,8 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 15,
   },
   previewRecipientsBtn: {
     flexDirection: 'row',

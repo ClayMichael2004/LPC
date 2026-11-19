@@ -93,3 +93,13 @@ type CustomerNotification struct {
 	Timestamp EATTime `json:"timestamp"`
 	Read      bool    `json:"read"`
 }
+
+// UserPreferences represents customer communication and notification preferences.
+type UserPreferences struct {
+	UserID    string  `json:"userId"`
+	SMS       bool    `json:"sms"`
+	WhatsApp  bool    `json:"whatsapp"`
+	Email     bool    `json:"email"`
+	Promo     bool    `json:"promo"`
+	UpdatedAt EATTime `json:"updatedAt"`
+}
