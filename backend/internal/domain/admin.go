@@ -71,3 +71,25 @@ type GalleryPhoto struct {
 	Label     string  `json:"label"`
 	CreatedAt EATTime `json:"createdAt"`
 }
+
+// ActivityBadge represents an event highlight card shown on the customer activities screen.
+type ActivityBadge struct {
+	ID        string  `json:"id"`
+	Title     string  `json:"title"`
+	Desc      string  `json:"desc"`
+	Icon      string  `json:"icon"` // "clock", "brush", "heart", "sparkles", "mapPin"
+	IsNew     bool    `json:"isNew"`
+	CreatedAt EATTime `json:"createdAt"`
+	UpdatedAt EATTime `json:"updatedAt"`
+}
+
+// CustomerNotification represents real-time communications, broadcast updates, and event alerts for app users.
+type CustomerNotification struct {
+	ID        string  `json:"id"`
+	Category  string  `json:"category"` // "activities" or "offers"
+	Title     string  `json:"title"`
+	Message   string  `json:"message"`
+	Channel   string  `json:"channel"` // "email" or "whatsapp"
+	Timestamp EATTime `json:"timestamp"`
+	Read      bool    `json:"read"`
+}

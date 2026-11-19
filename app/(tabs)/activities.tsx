@@ -13,8 +13,10 @@ import {
   TextInput,
   Switch,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -35,6 +37,9 @@ import {
   Pencil,
   Trash2,
   Check,
+  UploadCloud,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react-native';
 import AppHeader from '../../src/components/AppHeader';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
@@ -138,48 +143,99 @@ export default function ActivitiesScreen() {
   const [photoLabel, setPhotoLabel] = useState('');
   const [photoPresetIndex, setPhotoPresetIndex] = useState(0);
   const [customPhotoUri, setCustomPhotoUri] = useState('');
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  // Load Badges from Storage
-  useEffect(() => {
-    (async () => {
-      try {
-        const rawBadges = await AsyncStorage.getItem(STORAGE_BADGES_KEY);
-        if (rawBadges) {
-          const parsed = JSON.parse(rawBadges);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setBadges(parsed);
-          }
-        }
-      } catch {
-        // Keep default
+  const resolveGallerySource = (source: any) => {
+    if (!source) return PRESET_GALLERY_IMAGES[0];
+    if (typeof source === 'number') return source;
+    if (typeof source === 'string') {
+      if (
+        source.startsWith('data:image') ||
+        source.startsWith('http://') ||
+        source.startsWith('https://') ||
+        source.startsWith('file://')
+      ) {
+        return { uri: source };
       }
-    })();
-  }, []);
+      if (source.startsWith('/uploads')) {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+        return { uri: `http://${host}:8085${source}` };
+      }
+      const match = source.match(/painting-(\d+)/);
+      if (match && match[1]) {
+        const idx = parseInt(match[1], 10) - 1;
+        if (PRESET_GALLERY_IMAGES[idx]) return PRESET_GALLERY_IMAGES[idx];
+      }
+      return { uri: source };
+    }
+    return source;
+  };
 
-  // Load Gallery from Storage and Backend
-  useEffect(() => {
-    (async () => {
-      try {
-        const rawGallery = await AsyncStorage.getItem(STORAGE_GALLERY_KEY);
-        if (rawGallery) {
-          const parsed = JSON.parse(rawGallery);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const rehydrated = parsed.map((item: any) => {
-              if (item.presetIndex !== undefined && PRESET_GALLERY_IMAGES[item.presetIndex]) {
-                return { ...item, source: PRESET_GALLERY_IMAGES[item.presetIndex] };
-              }
-              if (item.uri) {
-                return { ...item, source: { uri: item.uri }, isCustomUri: true };
-              }
-              return item;
-            });
-            setGallery(rehydrated);
-          }
-        }
-      } catch {
-        // Keep default
+  // Load Badges from Backend with AsyncStorage offline cache
+  const loadBadges = async () => {
+    try {
+      const serverBadges = await activitiesApi.getBadges();
+      if (Array.isArray(serverBadges) && serverBadges.length > 0) {
+        setBadges(serverBadges);
+        await AsyncStorage.setItem(STORAGE_BADGES_KEY, JSON.stringify(serverBadges));
+        return;
       }
-    })();
+    } catch {
+      // Fallback
+    }
+
+    try {
+      const rawBadges = await AsyncStorage.getItem(STORAGE_BADGES_KEY);
+      if (rawBadges) {
+        const parsed = JSON.parse(rawBadges);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setBadges(parsed);
+        }
+      }
+    } catch {
+      // Keep default
+    }
+  };
+
+  // Load Gallery from Backend
+  const loadGallery = async () => {
+    try {
+      const serverGallery = await activitiesApi.getGallery();
+      if (Array.isArray(serverGallery) && serverGallery.length > 0) {
+        const formatted = serverGallery.map((item: any) => ({
+          id: item.id,
+          source: resolveGallerySource(item.source),
+          label: item.label,
+          isCustomUri: typeof item.source === 'string',
+        }));
+        setGallery(formatted);
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+
+    try {
+      const rawGallery = await AsyncStorage.getItem(STORAGE_GALLERY_KEY);
+      if (rawGallery) {
+        const parsed = JSON.parse(rawGallery);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const rehydrated = parsed.map((item: any) => ({
+            ...item,
+            source: resolveGallerySource(item.uri || (item.presetIndex !== undefined ? PRESET_GALLERY_IMAGES[item.presetIndex] : item.source)),
+          }));
+          setGallery(rehydrated);
+        }
+      }
+    } catch {
+      // Keep default
+    }
+  };
+
+  useEffect(() => {
+    loadBadges();
+    loadGallery();
   }, []);
 
   useEffect(() => {
@@ -246,17 +302,18 @@ export default function ActivitiesScreen() {
 
     let updated: ActivityBadgeItem[];
     if (editingBadge) {
-      updated = badges.map((b) =>
-        b.id === editingBadge.id
-          ? {
-              ...b,
-              title: badgeTitle.trim(),
-              desc: badgeDesc.trim(),
-              icon: badgeIcon,
-              isNew: badgeIsNew,
-            }
-          : b
-      );
+      const updatedItem: ActivityBadgeItem = {
+        ...editingBadge,
+        title: badgeTitle.trim(),
+        desc: badgeDesc.trim(),
+        icon: badgeIcon,
+        isNew: badgeIsNew,
+      };
+      updated = badges.map((b) => (b.id === editingBadge.id ? updatedItem : b));
+      setBadges(updated);
+      setBadgeModalVisible(false);
+
+      adminApi.updateBadge(editingBadge.id, updatedItem).catch(() => {});
     } else {
       const newBadge: ActivityBadgeItem = {
         id: `badge-${Date.now()}`,
@@ -266,10 +323,20 @@ export default function ActivitiesScreen() {
         isNew: badgeIsNew,
       };
       updated = [...badges, newBadge];
-    }
+      setBadges(updated);
+      setBadgeModalVisible(false);
 
-    setBadges(updated);
-    setBadgeModalVisible(false);
+      adminApi
+        .createBadge(newBadge)
+        .then((created) => {
+          if (created?.id) {
+            setBadges((prev) =>
+              prev.map((b) => (b.id === newBadge.id ? { ...b, id: created.id } : b))
+            );
+          }
+        })
+        .catch(() => {});
+    }
 
     try {
       await AsyncStorage.setItem(STORAGE_BADGES_KEY, JSON.stringify(updated));
@@ -290,6 +357,7 @@ export default function ActivitiesScreen() {
           onPress: async () => {
             const updated = badges.filter((b) => b.id !== badgeId);
             setBadges(updated);
+            adminApi.deleteBadge(badgeId).catch(() => {});
             try {
               await AsyncStorage.setItem(STORAGE_BADGES_KEY, JSON.stringify(updated));
             } catch {
@@ -302,73 +370,133 @@ export default function ActivitiesScreen() {
   };
 
   // --------------------------------------------------------------------------
-  // Gallery Handlers (Admin)
+  // Canva-Style Gallery Image Pickers & Handlers (Admin)
   // --------------------------------------------------------------------------
   const openAddPhotoModal = () => {
     setPhotoLabel('');
     setCustomPhotoUri('');
+    setPhotoBase64(null);
     setPhotoPresetIndex(0);
     setPhotoModalVisible(true);
   };
 
+  const pickImageFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Photo Library Permission',
+          'Please allow LPC access to your photo library to pick event pictures.'
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setCustomPhotoUri(asset.uri);
+        if (asset.base64) {
+          setPhotoBase64(`data:image/jpeg;base64,${asset.base64}`);
+        } else {
+          setPhotoBase64(null);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Selection Error', err?.message || 'Could not select photo');
+    }
+  };
+
+  const takePhotoWithCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Camera Permission',
+          'Please allow camera access to take pictures for the event gallery.'
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setCustomPhotoUri(asset.uri);
+        if (asset.base64) {
+          setPhotoBase64(`data:image/jpeg;base64,${asset.base64}`);
+        } else {
+          setPhotoBase64(null);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Camera Error', err?.message || 'Could not launch camera');
+    }
+  };
+
   const handleSavePhoto = async () => {
     if (!photoLabel.trim()) {
-      Alert.alert('Required', 'Please provide a caption/description for this photo.');
+      Alert.alert('Required', 'Please provide a caption or title for this photo.');
       return;
     }
 
-    const newId = `photo-${Date.now()}`;
-    let newPhoto: GalleryPhotoItem;
-    let serializableItem: any;
-
-    if (customPhotoUri.trim()) {
-      newPhoto = {
-        id: newId,
-        source: { uri: customPhotoUri.trim() },
-        label: photoLabel.trim(),
-        isCustomUri: true,
-      };
-      serializableItem = {
-        id: newId,
-        uri: customPhotoUri.trim(),
-        label: photoLabel.trim(),
-      };
-    } else {
-      newPhoto = {
-        id: newId,
-        source: PRESET_GALLERY_IMAGES[photoPresetIndex % PRESET_GALLERY_IMAGES.length],
-        label: photoLabel.trim(),
-      };
-      serializableItem = {
-        id: newId,
-        presetIndex: photoPresetIndex % PRESET_GALLERY_IMAGES.length,
-        label: photoLabel.trim(),
-      };
+    if (!customPhotoUri && photoPresetIndex === undefined) {
+      Alert.alert('Photo Required', 'Please select an image from your device or pick a preset.');
+      return;
     }
 
-    const updated = [newPhoto, ...gallery];
-    setGallery(updated);
-    setPhotoModalVisible(false);
+    setIsUploadingPhoto(true);
 
     try {
-      const storedList = updated.map((item) => {
-        if (item.isCustomUri && item.source?.uri) {
-          return { id: item.id, uri: item.source.uri, label: item.label };
+      let photoSource = '';
+
+      if (photoBase64) {
+        try {
+          const uploadRes = await adminApi.uploadImage(
+            photoBase64,
+            `gal_${Date.now()}.jpg`
+          );
+          if (uploadRes?.url) {
+            photoSource = uploadRes.url;
+          } else {
+            photoSource = photoBase64;
+          }
+        } catch {
+          photoSource = photoBase64;
         }
-        const foundIdx = PRESET_GALLERY_IMAGES.findIndex((p) => p === item.source);
-        return {
-          id: item.id,
-          presetIndex: foundIdx >= 0 ? foundIdx : 0,
-          label: item.label,
-        };
-      });
-      await AsyncStorage.setItem(STORAGE_GALLERY_KEY, JSON.stringify(storedList));
-      adminApi.addGalleryPhoto({
-        source: customPhotoUri.trim() || `preset-${photoPresetIndex + 1}`,
+      } else if (customPhotoUri) {
+        photoSource = customPhotoUri;
+      } else {
+        photoSource = `painting-${(photoPresetIndex % 8) + 1}.jpg`;
+      }
+
+      // 1. Post to backend gallery
+      await adminApi.addGalleryPhoto({
+        source: photoSource,
         label: photoLabel.trim(),
-      }).catch(() => {});
-    } catch {
-      // Ignore
+      });
+
+      // 2. Refresh from backend so both admin and customers see it instantly
+      await loadGallery();
+
+      setPhotoModalVisible(false);
+      setCustomPhotoUri('');
+      setPhotoBase64(null);
+      setPhotoLabel('');
+      Alert.alert('Success', 'Event photo published! It is now live on the customer side.');
+    } catch (err: any) {
+      Alert.alert('Upload Failed', err?.message || 'Could not publish photo. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -845,13 +973,62 @@ export default function ActivitiesScreen() {
               <Text style={styles.inputLabel}>Caption / Description</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. Painting Masterpiece in Garden"
+                placeholder="e.g. Young Artist Working with Canvas"
                 placeholderTextColor={COLORS.textSecondary}
                 value={photoLabel}
                 onChangeText={setPhotoLabel}
               />
 
-              <Text style={styles.inputLabel}>Choose from Cafe Photo Presets</Text>
+              {/* Canva-Style Device Photo Upload Surface */}
+              <Text style={styles.inputLabel}>Upload Photo</Text>
+              {customPhotoUri ? (
+                <View style={styles.canvaPreviewContainer}>
+                  <Image source={{ uri: customPhotoUri }} style={styles.canvaPreviewImg} resizeMode="cover" />
+                  <View style={styles.canvaPreviewOverlay}>
+                    <Pressable
+                      style={styles.canvaActionBtnSecondary}
+                      onPress={pickImageFromGallery}
+                    >
+                      <ImageIcon size={15} color={COLORS.heading} strokeWidth={2.2} />
+                      <Text style={styles.canvaActionBtnSecondaryText}>Change</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.canvaActionBtnRemove}
+                      onPress={() => {
+                        setCustomPhotoUri('');
+                        setPhotoBase64(null);
+                      }}
+                    >
+                      <Trash2 size={15} color="#DC2626" strokeWidth={2.2} />
+                      <Text style={styles.canvaActionBtnRemoveText}>Remove</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.canvaDropzone}>
+                  <View style={styles.canvaIconCircle}>
+                    <UploadCloud size={28} color="#07345F" strokeWidth={2.2} />
+                  </View>
+                  <Text style={styles.canvaDropzoneTitle}>Upload from Your Device</Text>
+                  <Text style={styles.canvaDropzoneSub}>
+                    Choose from your photo library or snap a fresh photo with camera
+                  </Text>
+                  <View style={styles.canvaBtnRow}>
+                    <Pressable style={styles.canvaPrimaryBtn} onPress={pickImageFromGallery}>
+                      <ImageIcon size={16} color={COLORS.white} strokeWidth={2.2} />
+                      <Text style={styles.canvaPrimaryBtnText}>Choose Photo</Text>
+                    </Pressable>
+                    <Pressable style={styles.canvaSecondaryBtn} onPress={takePhotoWithCamera}>
+                      <Camera size={16} color={COLORS.heading} strokeWidth={2.2} />
+                      <Text style={styles.canvaSecondaryBtnText}>Camera</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              <Text style={[styles.inputLabel, { marginTop: SPACING.md }]}>
+                Or Choose from Cafe Presets
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -867,6 +1044,7 @@ export default function ActivitiesScreen() {
                     onPress={() => {
                       setPhotoPresetIndex(idx);
                       setCustomPhotoUri('');
+                      setPhotoBase64(null);
                     }}
                   >
                     <Image source={src} style={styles.presetThumb} resizeMode="cover" />
@@ -879,26 +1057,27 @@ export default function ActivitiesScreen() {
                 ))}
               </ScrollView>
 
-              <Text style={styles.inputLabel}>Or Remote Image URL (Optional)</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="https://images.unsplash.com/..."
-                placeholderTextColor={COLORS.textSecondary}
-                value={customPhotoUri}
-                onChangeText={setCustomPhotoUri}
-                autoCapitalize="none"
-              />
-
               <View style={styles.modalBtnRow}>
                 <Pressable
                   style={styles.modalCancelBtn}
                   onPress={() => setPhotoModalVisible(false)}
+                  disabled={isUploadingPhoto}
                 >
                   <Text style={styles.modalCancelBtnText}>Cancel</Text>
                 </Pressable>
-                <Pressable style={styles.modalSaveBtn} onPress={handleSavePhoto}>
-                  <Plus size={18} color={COLORS.white} strokeWidth={2.4} />
-                  <Text style={styles.modalSaveBtnText}>Add Photo</Text>
+                <Pressable
+                  style={[styles.modalSaveBtn, isUploadingPhoto && { opacity: 0.7 }]}
+                  onPress={handleSavePhoto}
+                  disabled={isUploadingPhoto}
+                >
+                  {isUploadingPhoto ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <UploadCloud size={18} color={COLORS.white} strokeWidth={2.4} />
+                  )}
+                  <Text style={styles.modalSaveBtnText}>
+                    {isUploadingPhoto ? 'Uploading...' : 'Publish to Gallery'}
+                  </Text>
                 </Pressable>
               </View>
             </ScrollView>
@@ -1446,5 +1625,127 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  canvaDropzone: {
+    backgroundColor: '#F0F7FF',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#93C5FD',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: SPACING.xs,
+  },
+  canvaIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  canvaDropzoneTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 15,
+    color: COLORS.heading,
+    marginBottom: 4,
+  },
+  canvaDropzoneSub: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 17,
+    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+  },
+  canvaBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  canvaPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#07345F',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: RADIUS.full,
+  },
+  canvaPrimaryBtnText: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    color: COLORS.white,
+  },
+  canvaSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: RADIUS.full,
+  },
+  canvaSecondaryBtnText: {
+    fontFamily: FONTS.semibold,
+    fontSize: 13,
+    color: COLORS.heading,
+  },
+  canvaPreviewContainer: {
+    width: '100%',
+    height: 180,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    position: 'relative',
+    marginVertical: SPACING.xs,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  canvaPreviewImg: {
+    width: '100%',
+    height: '100%',
+  },
+  canvaPreviewOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  canvaActionBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    ...SHADOW.subtle,
+  },
+  canvaActionBtnSecondaryText: {
+    fontFamily: FONTS.semibold,
+    fontSize: 12,
+    color: COLORS.heading,
+  },
+  canvaActionBtnRemove: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(254, 242, 242, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    ...SHADOW.subtle,
+  },
+  canvaActionBtnRemoveText: {
+    fontFamily: FONTS.semibold,
+    fontSize: 12,
+    color: '#DC2626',
   },
 });

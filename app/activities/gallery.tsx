@@ -9,12 +9,14 @@ import {
   Dimensions,
   Modal,
   Linking,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, X, MessageCircle, ShieldCheck } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
+import { activitiesApi } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -58,8 +60,49 @@ export default function ActivitiesGalleryScreen() {
   const [photos, setPhotos] = useState<any[]>(ALL_GALLERY_PHOTOS);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
 
+  const resolveGallerySource = (source: any) => {
+    if (!source) return PRESET_GALLERY_IMAGES[0];
+    if (typeof source === 'number') return source;
+    if (typeof source === 'string') {
+      if (
+        source.startsWith('data:image') ||
+        source.startsWith('http://') ||
+        source.startsWith('https://') ||
+        source.startsWith('file://')
+      ) {
+        return { uri: source };
+      }
+      if (source.startsWith('/uploads')) {
+        const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+        return { uri: `http://${host}:8085${source}` };
+      }
+      const match = source.match(/painting-(\d+)/);
+      if (match && match[1]) {
+        const idx = parseInt(match[1], 10) - 1;
+        if (PRESET_GALLERY_IMAGES[idx]) return PRESET_GALLERY_IMAGES[idx];
+      }
+      return { uri: source };
+    }
+    return source;
+  };
+
   useEffect(() => {
     (async () => {
+      try {
+        const serverPhotos = await activitiesApi.getGallery();
+        if (Array.isArray(serverPhotos) && serverPhotos.length > 0) {
+          const formatted = serverPhotos.map((item: any) => ({
+            id: item.id,
+            source: resolveGallerySource(item.source),
+            label: item.label,
+          }));
+          setPhotos(formatted);
+          return;
+        }
+      } catch {
+        // Fallback
+      }
+
       try {
         const raw = await AsyncStorage.getItem(STORAGE_GALLERY_KEY);
         if (raw) {
@@ -70,7 +113,7 @@ export default function ActivitiesGalleryScreen() {
                 return { ...item, source: PRESET_GALLERY_IMAGES[item.presetIndex] };
               }
               if (item.uri) {
-                return { ...item, source: { uri: item.uri } };
+                return { ...item, source: resolveGallerySource(item.uri) };
               }
               return item;
             });

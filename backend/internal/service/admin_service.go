@@ -38,8 +38,10 @@ type AdminService struct {
 	mu             sync.RWMutex
 	broadcastLogs  []domain.BroadcastLog
 	adminNotifs    []domain.AdminNotification
+	customerNotifs []domain.CustomerNotification
 	specials       map[string]*domain.SpecialPromo
 	gallery        map[string]*domain.GalleryPhoto
+	badges         map[string]*domain.ActivityBadge
 	customActivities map[string]*domain.Activity
 }
 
@@ -56,8 +58,10 @@ func NewAdminService(
 		activityRepo:     activityRepo,
 		broadcastLogs:    make([]domain.BroadcastLog, 0),
 		adminNotifs:      make([]domain.AdminNotification, 0),
+		customerNotifs:   make([]domain.CustomerNotification, 0),
 		specials:         make(map[string]*domain.SpecialPromo),
 		gallery:          make(map[string]*domain.GalleryPhoto),
+		badges:           make(map[string]*domain.ActivityBadge),
 		customActivities: make(map[string]*domain.Activity),
 	}
 
@@ -131,6 +135,90 @@ func NewAdminService(
 	for _, p := range initialPhotos {
 		s.gallery[p.ID] = p
 	}
+
+	// Seed initial activity badges
+	initialBadges := []*domain.ActivityBadge{
+		{
+			ID:        "badge-1",
+			Title:     "Sundays · 12:00 PM – 2:00 PM",
+			Desc:      "2-hour guided painting workshop for kids and parents.",
+			Icon:      "clock",
+			IsNew:     false,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		{
+			ID:        "badge-2",
+			Title:     "Sketches & Oil Paints",
+			Desc:      "Sketch sheets, child-safe paints, and take-home canvas provided.",
+			Icon:      "brush",
+			IsNew:     false,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		{
+			ID:        "badge-3",
+			Title:     "Garden Terrace + Treat",
+			Desc:      "Includes reserved lakeside outdoor seating + complimentary iced brew for parent.",
+			Icon:      "heart",
+			IsNew:     false,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		{
+			ID:        "badge-4",
+			Title:     "Child & Family Safe",
+			Desc:      "Aprons, non-toxic materials, and step-by-step mentoring from Little Polo artists.",
+			Icon:      "sparkles",
+			IsNew:     true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+	for _, b := range initialBadges {
+		s.badges[b.ID] = b
+	}
+
+	// Seed initial customer notifications
+	initialCustomerNotifs := []domain.CustomerNotification{
+		{
+			ID:        "cnotif-1",
+			Category:  "activities",
+			Title:     "Sunday Family Oil Painting",
+			Message:   "Join us this Sunday 12:00 PM – 2:00 PM. Guided sketch sheets and paints provided for little ones!",
+			Channel:   "in-app",
+			Timestamp: now,
+			Read:      false,
+		},
+		{
+			ID:        "cnotif-2",
+			Category:  "offers",
+			Title:     "Free Delivery on Lakeview Cold Brew",
+			Message:   "Enjoy complimentary express delivery to East Kisumu & LBDA HQ on all cold brew orders today.",
+			Channel:   "in-app",
+			Timestamp: now,
+			Read:      false,
+		},
+		{
+			ID:        "cnotif-3",
+			Category:  "activities",
+			Title:     "New Animal Sketches Available",
+			Message:   "We have added fresh safari animal outlines for the Sunday painting workshop!",
+			Channel:   "in-app",
+			Timestamp: now,
+			Read:      true,
+		},
+		{
+			ID:        "cnotif-4",
+			Category:  "offers",
+			Title:     "Weekend Brunch Special",
+			Message:   "Buttermilk pancake stacks with wildflower honey now available every Saturday and Sunday.",
+			Channel:   "in-app",
+			Timestamp: now,
+			Read:      true,
+		},
+	}
+	s.customerNotifs = append(s.customerNotifs, initialCustomerNotifs...)
 
 	// Seed initial admin operational notification
 	s.adminNotifs = append(s.adminNotifs, domain.AdminNotification{
@@ -229,6 +317,23 @@ func (s *AdminService) SendBroadcast(ctx context.Context, req domain.SendBroadca
 	s.mu.Lock()
 	// Prepend newest log
 	s.broadcastLogs = append([]domain.BroadcastLog{logEntry}, s.broadcastLogs...)
+
+	// Record customer-facing notification so all customers see the announcement in their app notification center
+	category := "offers"
+	subjLower := strings.ToLower(subject)
+	if strings.Contains(subjLower, "paint") || strings.Contains(subjLower, "workshop") || strings.Contains(subjLower, "activit") || strings.Contains(subjLower, "sketch") {
+		category = "activities"
+	}
+	custNotif := domain.CustomerNotification{
+		ID:        "cnotif-" + uuid.NewString()[:8],
+		Category:  category,
+		Title:     subject,
+		Message:   message,
+		Channel:   channel,
+		Timestamp: now,
+		Read:      false,
+	}
+	s.customerNotifs = append([]domain.CustomerNotification{custNotif}, s.customerNotifs...)
 
 	// Create an administrative notification for the cafe owner
 	notif := domain.AdminNotification{
@@ -416,3 +521,73 @@ func (s *AdminService) DeleteActivity(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// ----------------------------------------------------------------------------
+// Activity Badges Management
+// ----------------------------------------------------------------------------
+
+func (s *AdminService) GetBadges(ctx context.Context) []domain.ActivityBadge {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var list []domain.ActivityBadge
+	for _, b := range s.badges {
+		list = append(list, *b)
+	}
+	return list
+}
+
+func (s *AdminService) CreateBadge(ctx context.Context, b *domain.ActivityBadge) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if b.ID == "" {
+		b.ID = "badge-" + uuid.NewString()[:8]
+	}
+	now := domain.NowEAT()
+	b.CreatedAt = now
+	b.UpdatedAt = now
+	s.badges[b.ID] = b
+	return nil
+}
+
+func (s *AdminService) UpdateBadge(ctx context.Context, b *domain.ActivityBadge) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b.UpdatedAt = domain.NowEAT()
+	s.badges[b.ID] = b
+	return nil
+}
+
+func (s *AdminService) DeleteBadge(ctx context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.badges[id]; ok {
+		delete(s.badges, id)
+		return nil
+	}
+	return nil
+}
+
+// ----------------------------------------------------------------------------
+// Customer In-App Notifications
+// ----------------------------------------------------------------------------
+
+func (s *AdminService) GetCustomerNotifications(ctx context.Context) []domain.CustomerNotification {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	res := make([]domain.CustomerNotification, len(s.customerNotifs))
+	copy(res, s.customerNotifs)
+	return res
+}
+
+func (s *AdminService) MarkCustomerNotificationRead(ctx context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.customerNotifs {
+		if s.customerNotifs[i].ID == id {
+			s.customerNotifs[i].Read = true
+			return nil
+		}
+	}
+	return nil
+}
+

@@ -1,11 +1,21 @@
 package http
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	redisclient "github.com/redis/go-redis/v9"
 	"github.com/littlepolocafe/backend/internal/domain"
 	"github.com/littlepolocafe/backend/internal/service"
 )
@@ -14,6 +24,7 @@ type AdminHandler struct {
 	orderService *service.OrderService
 	menuService  *service.MenuService
 	adminService *service.AdminService
+	redisClient  *redisclient.Client
 }
 
 func NewAdminHandler(
@@ -28,10 +39,40 @@ func NewAdminHandler(
 	}
 }
 
+func (h *AdminHandler) SetRedisClient(r *redisclient.Client) {
+	h.redisClient = r
+}
+
+func (h *AdminHandler) InvalidateOrderCache(ctx context.Context) {
+	if h.redisClient != nil {
+		keys, err := h.redisClient.Keys(ctx, "lpc:cache:orders:*").Result()
+		if err == nil && len(keys) > 0 {
+			_ = h.redisClient.Del(ctx, keys...).Err()
+		}
+	}
+}
+
 // GetAllOrders lists all orders for cafe owner management with search, filter, and pagination.
 func (h *AdminHandler) GetAllOrders(c *gin.Context) {
 	statusQuery := strings.TrimSpace(c.Query("status"))
 	searchQuery := strings.ToLower(strings.TrimSpace(c.Query("search")))
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "15"))
+	if page < 1 {
+		page = 1
+	}
+
+	// 1. Fast O(1) Redis cache lookup
+	cacheKey := fmt.Sprintf("lpc:cache:orders:admin:%s:%s:%d:%d", statusQuery, searchQuery, page, limit)
+	if h.redisClient != nil {
+		if cached, err := h.redisClient.Get(c.Request.Context(), cacheKey).Result(); err == nil && cached != "" {
+			c.Header("Content-Type", "application/json")
+			c.Header("X-Cache", "HIT")
+			c.String(http.StatusOK, cached)
+			return
+		}
+	}
 
 	var statusFilter *domain.OrderStatus
 	if statusQuery != "" && statusQuery != "all" {
@@ -84,13 +125,6 @@ func (h *AdminHandler) GetAllOrders(c *gin.Context) {
 		}
 	}
 
-	// Pagination
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "15"))
-	if page < 1 {
-		page = 1
-	}
-
 	totalItems := len(filtered)
 	startIndex := (page - 1) * limit
 	endIndex := startIndex + limit
@@ -105,12 +139,17 @@ func (h *AdminHandler) GetAllOrders(c *gin.Context) {
 		pagedOrders = []domain.Order{}
 	}
 
-	JSONSuccess(c, http.StatusOK, gin.H{
+	totalPages := 1
+	if totalItems > 0 && limit > 0 {
+		totalPages = (totalItems + limit - 1) / limit
+	}
+
+	respObj := gin.H{
 		"orders":     pagedOrders,
 		"total":      totalItems,
 		"page":       page,
 		"limit":      limit,
-		"totalPages": (totalItems + limit - 1) / limit,
+		"totalPages": totalPages,
 		"stats": gin.H{
 			"totalOrders":     len(orders),
 			"totalRevenueKES": totalRevenue,
@@ -120,7 +159,19 @@ func (h *AdminHandler) GetAllOrders(c *gin.Context) {
 			"completedOrders": deliveredCount,
 			"cancelledOrders": cancelledCount,
 		},
-	})
+	}
+
+	// Cache payload in Redis with 30s TTL
+	if h.redisClient != nil {
+		if b, err := json.Marshal(gin.H{
+			"success": true,
+			"data":    respObj,
+		}); err == nil {
+			_ = h.redisClient.Set(c.Request.Context(), cacheKey, string(b), 30*time.Second).Err()
+		}
+	}
+
+	JSONSuccess(c, http.StatusOK, respObj)
 }
 
 // UpdateOrderStatus advances the order lifecycle and broadcasts via WebSocket.
@@ -137,6 +188,8 @@ func (h *AdminHandler) UpdateOrderStatus(c *gin.Context) {
 		JSONError(c, http.StatusInternalServerError, "Failed to update order status: "+err.Error())
 		return
 	}
+
+	h.InvalidateOrderCache(c.Request.Context())
 
 	JSONSuccess(c, http.StatusOK, tracking)
 }
@@ -444,4 +497,160 @@ func (h *AdminHandler) DeleteActivity(c *gin.Context) {
 	}
 
 	JSONMessage(c, http.StatusOK, "Activity removed successfully")
+}
+
+// ----------------------------------------------------------------------------
+// Activity Badges Handlers
+// ----------------------------------------------------------------------------
+
+func (h *AdminHandler) GetBadges(c *gin.Context) {
+	badges := h.adminService.GetBadges(c.Request.Context())
+	if badges == nil {
+		badges = []domain.ActivityBadge{}
+	}
+	JSONSuccess(c, http.StatusOK, badges)
+}
+
+func (h *AdminHandler) CreateBadge(c *gin.Context) {
+	var badge domain.ActivityBadge
+	if err := c.ShouldBindJSON(&badge); err != nil {
+		JSONError(c, http.StatusBadRequest, "Invalid badge payload: "+err.Error())
+		return
+	}
+	if err := h.adminService.CreateBadge(c.Request.Context(), &badge); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Failed to create badge: "+err.Error())
+		return
+	}
+	JSONSuccess(c, http.StatusCreated, badge)
+}
+
+func (h *AdminHandler) UpdateBadge(c *gin.Context) {
+	id := c.Param("id")
+	var badge domain.ActivityBadge
+	if err := c.ShouldBindJSON(&badge); err != nil {
+		JSONError(c, http.StatusBadRequest, "Invalid badge payload: "+err.Error())
+		return
+	}
+	badge.ID = id
+	if err := h.adminService.UpdateBadge(c.Request.Context(), &badge); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Failed to update badge: "+err.Error())
+		return
+	}
+	JSONSuccess(c, http.StatusOK, badge)
+}
+
+func (h *AdminHandler) DeleteBadge(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.adminService.DeleteBadge(c.Request.Context(), id); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Failed to delete badge: "+err.Error())
+		return
+	}
+	JSONSuccess(c, http.StatusOK, gin.H{"message": "Badge deleted successfully"})
+}
+
+// ----------------------------------------------------------------------------
+// Customer In-App Notifications
+// ----------------------------------------------------------------------------
+
+func (h *AdminHandler) GetCustomerNotifications(c *gin.Context) {
+	notifs := h.adminService.GetCustomerNotifications(c.Request.Context())
+	if notifs == nil {
+		notifs = []domain.CustomerNotification{}
+	}
+	JSONSuccess(c, http.StatusOK, notifs)
+}
+
+func (h *AdminHandler) MarkCustomerNotificationRead(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.adminService.MarkCustomerNotificationRead(c.Request.Context(), id); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Failed to update notification: "+err.Error())
+		return
+	}
+	JSONSuccess(c, http.StatusOK, gin.H{"message": "Notification marked as read"})
+}
+
+// ----------------------------------------------------------------------------
+// Image Upload Handler (Canva-style device gallery photo upload)
+// ----------------------------------------------------------------------------
+
+func (h *AdminHandler) UploadImage(c *gin.Context) {
+	uploadsDir := "./uploads"
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Failed to initialize storage: "+err.Error())
+		return
+	}
+
+	// 1. Check for multipart file upload
+	file, fileHeader, err := c.Request.FormFile("file")
+	if err == nil {
+		defer file.Close()
+		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+		if ext == "" {
+			ext = ".jpg"
+		}
+		filename := fmt.Sprintf("upload_%s%s", uuid.NewString()[:12], ext)
+		dstPath := filepath.Join(uploadsDir, filename)
+
+		out, err := os.Create(dstPath)
+		if err != nil {
+			JSONError(c, http.StatusInternalServerError, "Failed to save image file: "+err.Error())
+			return
+		}
+		defer out.Close()
+
+		if _, err := io.Copy(out, file); err != nil {
+			JSONError(c, http.StatusInternalServerError, "Failed to write image data: "+err.Error())
+			return
+		}
+
+		JSONSuccess(c, http.StatusOK, gin.H{
+			"url":      "/uploads/" + filename,
+			"filename": filename,
+		})
+		return
+	}
+
+	// 2. Check for JSON base64 upload
+	var req struct {
+		Image string `json:"image" binding:"required"`
+		Name  string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		JSONError(c, http.StatusBadRequest, "Invalid upload payload: file or base64 image required")
+		return
+	}
+
+	raw := req.Image
+	ext := ".jpg"
+	if strings.HasPrefix(raw, "data:image/png;base64,") {
+		ext = ".png"
+		raw = strings.TrimPrefix(raw, "data:image/png;base64,")
+	} else if strings.HasPrefix(raw, "data:image/jpeg;base64,") {
+		ext = ".jpg"
+		raw = strings.TrimPrefix(raw, "data:image/jpeg;base64,")
+	} else if strings.HasPrefix(raw, "data:image/webp;base64,") {
+		ext = ".webp"
+		raw = strings.TrimPrefix(raw, "data:image/webp;base64,")
+	} else if strings.Contains(raw, ";base64,") {
+		parts := strings.Split(raw, ";base64,")
+		raw = parts[1]
+	}
+
+	data, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		JSONError(c, http.StatusBadRequest, "Invalid base64 image data")
+		return
+	}
+
+	filename := fmt.Sprintf("upload_%s%s", uuid.NewString()[:12], ext)
+	dstPath := filepath.Join(uploadsDir, filename)
+	if err := os.WriteFile(dstPath, data, 0644); err != nil {
+		JSONError(c, http.StatusInternalServerError, "Failed to persist image: "+err.Error())
+		return
+	}
+
+	JSONSuccess(c, http.StatusOK, gin.H{
+		"url":      "/uploads/" + filename,
+		"filename": filename,
+	})
 }

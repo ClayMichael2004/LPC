@@ -362,10 +362,47 @@ func (r *OrderRepository) GetOrdersByUserID(ctx context.Context, userID string) 
 	}
 	rows.Close()
 
-	for i := range orders {
-		items, err := r.getOrderItems(ctx, orders[i].ID)
+	// Batch fetch all order items in a single query instead of N+1
+	if len(orders) > 0 {
+		orderIDs := make([]string, len(orders))
+		for i, o := range orders {
+			orderIDs[i] = o.ID
+		}
+
+		itemsQuery := `
+			SELECT id, order_id, product_id, product_name, option_id, option_name,
+			       quantity, unit_price, option_price, total_price
+			FROM order_items
+			WHERE order_id = ANY($1)
+		`
+		iRows, err := r.pool.Query(ctx, itemsQuery, orderIDs)
 		if err == nil {
-			orders[i].Items = items
+			defer iRows.Close()
+			itemsByOrder := make(map[string][]domain.OrderItem)
+			for iRows.Next() {
+				var it domain.OrderItem
+				if err := iRows.Scan(
+					&it.ID,
+					&it.OrderID,
+					&it.ProductID,
+					&it.ProductName,
+					&it.OptionID,
+					&it.OptionName,
+					&it.Quantity,
+					&it.UnitPrice,
+					&it.OptionPrice,
+					&it.TotalPrice,
+				); err == nil {
+					itemsByOrder[it.OrderID] = append(itemsByOrder[it.OrderID], it)
+				}
+			}
+			for i := range orders {
+				if itList, ok := itemsByOrder[orders[i].ID]; ok {
+					orders[i].Items = itList
+				} else {
+					orders[i].Items = []domain.OrderItem{}
+				}
+			}
 		}
 	}
 
@@ -449,10 +486,47 @@ func (r *OrderRepository) GetAllOrders(ctx context.Context, statusFilter *domain
 	}
 	rows.Close()
 
-	for i := range orders {
-		items, err := r.getOrderItems(ctx, orders[i].ID)
+	// Batch fetch all order items in a single query instead of N+1
+	if len(orders) > 0 {
+		orderIDs := make([]string, len(orders))
+		for i, o := range orders {
+			orderIDs[i] = o.ID
+		}
+
+		itemsQuery := `
+			SELECT id, order_id, product_id, product_name, option_id, option_name,
+			       quantity, unit_price, option_price, total_price
+			FROM order_items
+			WHERE order_id = ANY($1)
+		`
+		iRows, err := r.pool.Query(ctx, itemsQuery, orderIDs)
 		if err == nil {
-			orders[i].Items = items
+			defer iRows.Close()
+			itemsByOrder := make(map[string][]domain.OrderItem)
+			for iRows.Next() {
+				var it domain.OrderItem
+				if err := iRows.Scan(
+					&it.ID,
+					&it.OrderID,
+					&it.ProductID,
+					&it.ProductName,
+					&it.OptionID,
+					&it.OptionName,
+					&it.Quantity,
+					&it.UnitPrice,
+					&it.OptionPrice,
+					&it.TotalPrice,
+				); err == nil {
+					itemsByOrder[it.OrderID] = append(itemsByOrder[it.OrderID], it)
+				}
+			}
+			for i := range orders {
+				if itList, ok := itemsByOrder[orders[i].ID]; ok {
+					orders[i].Items = itList
+				} else {
+					orders[i].Items = []domain.OrderItem{}
+				}
+			}
 		}
 	}
 

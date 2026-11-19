@@ -355,6 +355,14 @@ export const menuApi = {
 export const activitiesApi = {
   getActivities: () => apiRequest<any[]>('/activities', { method: 'GET' }),
   getActivity: (id: string) => apiRequest<any>(`/activities/${id}`, { method: 'GET' }),
+  getBadges: () => apiRequest<any[]>('/activities/badges', { method: 'GET' }),
+  getGallery: () => apiRequest<GalleryPhoto[]>('/activities/gallery', { method: 'GET' }),
+};
+
+export const notificationsApi = {
+  getCustomerNotifications: () => apiRequest<any[]>('/notifications', { method: 'GET' }),
+  markNotificationRead: (id: string) =>
+    apiRequest<{ message: string }>(`/notifications/${id}/read`, { method: 'PATCH' }),
 };
 
 export const ordersApi = {
@@ -476,6 +484,48 @@ export const adminApi = {
     apiRequest<{ message: string }>(`/admin/activities/gallery/${id}`, {
       method: 'DELETE',
     }),
+
+  createBadge: (badge: any) =>
+    apiRequest<any>('/admin/activities/badges', {
+      method: 'POST',
+      body: JSON.stringify(badge),
+    }),
+
+  updateBadge: (id: string, badge: any) =>
+    apiRequest<any>(`/admin/activities/badges/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(badge),
+    }),
+
+  deleteBadge: (id: string) =>
+    apiRequest<{ message: string }>(`/admin/activities/badges/${id}`, {
+      method: 'DELETE',
+    }),
+
+  uploadImage: async (base64OrFormData: string | FormData, filename?: string) => {
+    if (typeof base64OrFormData === 'string') {
+      return apiRequest<{ url: string; filename: string }>('/upload', {
+        method: 'POST',
+        body: JSON.stringify({ image: base64OrFormData, name: filename }),
+      });
+    } else {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        headers,
+        body: base64OrFormData,
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.success) {
+        throw new ApiError(json?.error || 'Failed to upload photo', response.status);
+      }
+      return json.data as { url: string; filename: string };
+    }
+  },
 
   createActivity: (act: any) =>
     apiRequest<any>('/admin/activities', {

@@ -35,6 +35,14 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 	r.Use(middleware.CORS())
 	r.Use(gin.Logger())
 
+	// Static files for user and admin photo uploads
+	r.Static("/uploads", "./uploads")
+
+	// Set Redis client on AdminHandler if available
+	if h.RedisClient != nil && h.AdminHandler != nil {
+		h.AdminHandler.SetRedisClient(h.RedisClient)
+	}
+
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -84,8 +92,16 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		{
 			activitiesGroup.GET("", h.ActivityHandler.GetActivities)
 			activitiesGroup.GET("/gallery", h.AdminHandler.GetGallery)
+			activitiesGroup.GET("/badges", h.AdminHandler.GetBadges)
 			activitiesGroup.GET("/:id", h.ActivityHandler.GetActivity)
 		}
+
+		// Public Customer Notifications (Announcements & Activity Alerts)
+		api.GET("/notifications", h.AdminHandler.GetCustomerNotifications)
+		api.PATCH("/notifications/:id/read", h.AdminHandler.MarkCustomerNotificationRead)
+
+		// Canva-style Image Upload endpoint
+		api.POST("/upload", h.AdminHandler.UploadImage)
 
 		// Price calculation (Public server-side price calculation endpoint)
 		api.POST("/orders/calculate", h.OrderHandler.CalculatePrice)
@@ -137,10 +153,13 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 			adminGroup.POST("/menu/specials", h.AdminHandler.CreateSpecial)
 			adminGroup.DELETE("/menu/specials/:id", h.AdminHandler.DeleteSpecial)
 
-			// Admin Activities & Gallery
+			// Admin Activities, Badges & Gallery
 			adminGroup.POST("/activities", h.AdminHandler.CreateActivity)
 			adminGroup.PUT("/activities/:id", h.AdminHandler.UpdateActivity)
 			adminGroup.DELETE("/activities/:id", h.AdminHandler.DeleteActivity)
+			adminGroup.POST("/activities/badges", h.AdminHandler.CreateBadge)
+			adminGroup.PUT("/activities/badges/:id", h.AdminHandler.UpdateBadge)
+			adminGroup.DELETE("/activities/badges/:id", h.AdminHandler.DeleteBadge)
 			adminGroup.POST("/activities/gallery", h.AdminHandler.AddGalleryPhoto)
 			adminGroup.DELETE("/activities/gallery/:id", h.AdminHandler.DeleteGalleryPhoto)
 

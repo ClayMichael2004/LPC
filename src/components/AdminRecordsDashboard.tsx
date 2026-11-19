@@ -41,7 +41,16 @@ export default function AdminRecordsDashboard() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
   const [stats, setStats] = useState<{
     totalOrders: number;
     totalRevenueKES: number;
@@ -74,7 +83,7 @@ export default function AdminRecordsDashboard() {
         page,
         limit: 15,
         status: statusFilter === 'all' ? undefined : statusFilter,
-        search: searchQuery.trim() || undefined,
+        search: debouncedSearch || undefined,
       });
 
       if (resp) {
@@ -91,7 +100,7 @@ export default function AdminRecordsDashboard() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [page, statusFilter, searchQuery]);
+  }, [page, statusFilter, debouncedSearch]);
 
   useEffect(() => {
     fetchOrders();

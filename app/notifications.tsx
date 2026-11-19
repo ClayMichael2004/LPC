@@ -23,7 +23,7 @@ import {
 } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
-import { adminApi } from '../src/services/api';
+import { adminApi, notificationsApi } from '../src/services/api';
 import { AdminNotification } from '../src/types';
 
 interface CustomerNotificationItem {
@@ -91,6 +91,60 @@ export default function NotificationsScreen() {
 
   const storageKey = `${NOTIF_STORAGE_PREFIX}${user?.id || 'guest'}`;
 
+  const formatTimeAgo = (isoString?: string): string => {
+    if (!isoString) return 'Recently';
+    try {
+      const diff = Date.now() - new Date(isoString).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    } catch {
+      return 'Recently';
+    }
+  };
+
+  const fetchCustomerNotifications = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(storageKey);
+      const readIds: string[] = raw ? JSON.parse(raw) : [];
+
+      const data = await notificationsApi.getCustomerNotifications();
+      if (Array.isArray(data) && data.length > 0) {
+        const formatted: CustomerNotificationItem[] = data.map((item: any) => ({
+          id: item.id,
+          category: item.category === 'activities' ? 'activities' : 'offers',
+          title: item.title,
+          message: item.message,
+          time: formatTimeAgo(item.timestamp),
+          read: item.read || readIds.includes(item.id),
+        }));
+        setCustomerNotifications(formatted);
+        return;
+      }
+    } catch {
+      // Fallback to local storage if offline
+    }
+
+    try {
+      const raw = await AsyncStorage.getItem(storageKey);
+      if (!raw) return;
+      const readIds: string[] = JSON.parse(raw);
+      if (Array.isArray(readIds)) {
+        setCustomerNotifications(
+          INITIAL_CUSTOMER_NOTIFICATIONS.map((n) =>
+            readIds.includes(n.id) ? { ...n, read: true } : n
+          )
+        );
+      }
+    } catch {
+      // Ignore
+    }
+  }, [storageKey]);
+
   // Fetch admin operational notifications
   const fetchAdminNotifications = useCallback(async () => {
     setLoadingAdminNotifs(true);
@@ -128,24 +182,9 @@ export default function NotificationsScreen() {
     if (isAdmin) {
       fetchAdminNotifications();
     } else {
-      (async () => {
-        try {
-          const raw = await AsyncStorage.getItem(storageKey);
-          if (!raw) return;
-          const readIds: string[] = JSON.parse(raw);
-          if (Array.isArray(readIds)) {
-            setCustomerNotifications(
-              INITIAL_CUSTOMER_NOTIFICATIONS.map((n) =>
-                readIds.includes(n.id) ? { ...n, read: true } : n
-              )
-            );
-          }
-        } catch {
-          // Ignore
-        }
-      })();
+      fetchCustomerNotifications();
     }
-  }, [isAdmin, storageKey, fetchAdminNotifications]);
+  }, [isAdmin, fetchCustomerNotifications, fetchAdminNotifications]);
 
   const handleMarkAllAsRead = async () => {
     if (isAdmin) {

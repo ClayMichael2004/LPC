@@ -45,6 +45,7 @@ services:
       - "8085:8080"
     volumes:
       - ../assets:/app/assets:ro
+      - ./uploads:/app/uploads
     environment:
       PORT: 8080
       ENV: ${ENV:-development}
