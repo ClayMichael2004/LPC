@@ -174,15 +174,21 @@ export async function apiRequest<T = any>(
     headers['Idempotency-Key'] = idempotencyKey;
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let timeoutId: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new ApiError('Request timed out. Please check your network connection and try again.', 408));
+    }, timeoutMs);
+  });
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...rest,
-      headers,
-      signal: controller.signal,
-    });
+    const response = await Promise.race([
+      fetch(`${API_BASE_URL}${endpoint}`, {
+        ...rest,
+        headers,
+      }),
+      timeoutPromise,
+    ]);
 
     const json = await response.json().catch(() => null);
 
@@ -213,8 +219,12 @@ export async function apiRequest<T = any>(
     if (err instanceof ApiError) {
       throw err;
     }
-    if (err.name === 'AbortError' || err.message?.includes('aborted') || err.message?.includes('cancelled')) {
-      throw new ApiError('Request timed out. Please check your network connection and try again.', 408);
+    if (
+      err.name === 'AbortError' ||
+      err.message?.toLowerCase().includes('aborted') ||
+      err.message?.toLowerCase().includes('cancelled')
+    ) {
+      throw new ApiError('Request was interrupted. Please check your connection and try again.', 408);
     }
     throw new ApiError(err?.message || 'Network request failed. Please check your connection.', 0);
   } finally {
