@@ -84,13 +84,22 @@ const ASSET_IMAGE_MAP: Record<string, any> = {
 
 export function resolveBackendImage(image: any, fallbackKey = 'burger-boss.png'): any {
   if (!image) return ASSET_IMAGE_MAP[fallbackKey];
-  if (typeof image === 'number' || typeof image === 'object') return image;
+  if (typeof image === 'number') return image;
+  if (typeof image === 'object' && image?.uri) return image;
   if (typeof image === 'string') {
     if (ASSET_IMAGE_MAP[image]) return ASSET_IMAGE_MAP[image];
     const basename = image.split('/').pop() || '';
     if (ASSET_IMAGE_MAP[basename]) return ASSET_IMAGE_MAP[basename];
-    if (image.startsWith('http://') || image.startsWith('https://')) {
+    if (
+      image.startsWith('data:image') ||
+      image.startsWith('http://') ||
+      image.startsWith('https://') ||
+      image.startsWith('file://')
+    ) {
       return { uri: image };
+    }
+    if (image.startsWith('/uploads') || image.startsWith('uploads/')) {
+      return { uri: resolveUploadUrl(image) };
     }
   }
   return ASSET_IMAGE_MAP[fallbackKey];
@@ -479,6 +488,12 @@ export const adminApi = {
   createProduct: (product: Partial<Product>) =>
     apiRequest<Product>('/admin/menu/products', {
       method: 'POST',
+      body: JSON.stringify(product),
+    }),
+
+  updateProduct: (productId: string, product: Partial<Product>) =>
+    apiRequest<Product>(`/admin/menu/products/${productId}`, {
+      method: 'PUT',
       body: JSON.stringify(product),
     }),
 

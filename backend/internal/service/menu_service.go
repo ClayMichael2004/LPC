@@ -18,6 +18,7 @@ type ProductCatalog interface {
 	GetProductByID(ctx context.Context, id string) (*domain.Product, error)
 	UpdateStock(ctx context.Context, id string, isAvailable *bool, stockQty *int) error
 	CreateProduct(ctx context.Context, p *domain.Product) error
+	UpdateProduct(ctx context.Context, p *domain.Product) error
 	DeleteProduct(ctx context.Context, id string) error
 }
 
@@ -114,6 +115,16 @@ func (s *MenuService) UpdateStock(ctx context.Context, id string, isAvailable *b
 // CreateProduct creates a new menu product and purges Redis cache.
 func (s *MenuService) CreateProduct(ctx context.Context, p *domain.Product) error {
 	err := s.productRepo.CreateProduct(ctx, p)
+	if err != nil {
+		return err
+	}
+	_ = s.cache.InvalidateAll(ctx)
+	return nil
+}
+
+// UpdateProduct updates an existing menu product and purges Redis cache.
+func (s *MenuService) UpdateProduct(ctx context.Context, p *domain.Product) error {
+	err := s.productRepo.UpdateProduct(ctx, p)
 	if err != nil {
 		return err
 	}

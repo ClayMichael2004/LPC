@@ -15,6 +15,7 @@ import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/con
 import { useCart } from '../../src/context/CartContext';
 import { useCategory } from '../../src/context/CategoryContext';
 import { ProductOption } from '../../src/types';
+import { resolveBackendImage } from '../../src/services/api';
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -81,7 +82,11 @@ export default function ProductDetailScreen() {
       >
         {/* Product Image */}
         <View style={styles.imageContainer}>
-          <Image source={product.image} style={styles.productImage} resizeMode="contain" />
+          <Image
+            source={resolveBackendImage(product.image)}
+            style={styles.productImage}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Product Title & Base Price */}

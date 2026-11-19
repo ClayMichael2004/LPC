@@ -15,6 +15,7 @@ import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/con
 import { useCart } from '../../src/context/CartContext';
 import { useAuth } from '../../src/context/AuthContext';
 import AdminRecordsDashboard from '../../src/components/AdminRecordsDashboard';
+import { resolveBackendImage } from '../../src/services/api';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function CartScreen() {
               <View key={item.cartItemId} style={styles.itemCard}>
                 <View style={styles.itemImageWrapper}>
                   <Image
-                    source={item.product.image}
+                    source={resolveBackendImage(item.product.image)}
                     style={styles.itemImage}
                     resizeMode="contain"
                   />

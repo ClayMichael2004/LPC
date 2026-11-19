@@ -265,6 +265,23 @@ func (h *AdminHandler) CreateProduct(c *gin.Context) {
 	JSONSuccess(c, http.StatusCreated, p)
 }
 
+// UpdateProduct updates an existing item on the menu.
+func (h *AdminHandler) UpdateProduct(c *gin.Context) {
+	id := c.Param("id")
+	var p domain.Product
+	if err := c.ShouldBindJSON(&p); err != nil {
+		JSONError(c, http.StatusBadRequest, "Invalid product payload")
+		return
+	}
+	p.ID = id
+	err := h.menuService.UpdateProduct(c.Request.Context(), &p)
+	if err != nil {
+		JSONError(c, http.StatusInternalServerError, "Failed to update product: "+err.Error())
+		return
+	}
+	JSONSuccess(c, http.StatusOK, p)
+}
+
 // DeleteProduct removes an item from the menu.
 func (h *AdminHandler) DeleteProduct(c *gin.Context) {
 	id := c.Param("id")

@@ -358,6 +358,33 @@ func (r *MemoryProductRepo) CreateProduct(ctx context.Context, p *domain.Product
 	return nil
 }
 
+func (r *MemoryProductRepo) UpdateProduct(ctx context.Context, p *domain.Product) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	existing, ok := r.products[p.ID]
+	if !ok {
+		return postgres.ErrProductNotFound
+	}
+	if p.Name != "" {
+		existing.Name = p.Name
+	}
+	if p.Category != "" {
+		existing.Category = p.Category
+	}
+	if p.Price > 0 {
+		existing.Price = p.Price
+	}
+	if p.Description != "" {
+		existing.Description = p.Description
+	}
+	if p.Image != "" {
+		existing.Image = p.Image
+	}
+	existing.IsAvailable = p.IsAvailable
+	existing.UpdatedAt = domain.NowEAT()
+	return nil
+}
+
 func (r *MemoryProductRepo) DeleteProduct(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -224,6 +224,32 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, p *domain.Product
 	return nil
 }
 
+func (r *ProductRepository) UpdateProduct(ctx context.Context, p *domain.Product) error {
+	now := time.Now()
+	query := `
+		UPDATE products
+		SET name = COALESCE(NULLIF($1, ''), name),
+		    category_id = COALESCE(NULLIF($2, ''), category_id),
+		    price = CASE WHEN $3 > 0 THEN $3 ELSE price END,
+		    description = COALESCE(NULLIF($4, ''), description),
+		    image = COALESCE(NULLIF($5, ''), image),
+		    is_available = COALESCE($6, is_available),
+		    updated_at = $7
+		WHERE id = $8
+	`
+	res, err := r.pool.Exec(ctx, query,
+		p.Name, p.Category, p.Price, p.Description, p.Image, p.IsAvailable, now, p.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update product: %w", err)
+	}
+	if res.RowsAffected() == 0 {
+		return ErrProductNotFound
+	}
+	p.UpdatedAt = domain.ToEAT(now)
+	return nil
+}
+
 func (r *ProductRepository) DeleteProduct(ctx context.Context, id string) error {
 	res, err := r.pool.Exec(ctx, "DELETE FROM products WHERE id = $1", id)
 	if err != nil {

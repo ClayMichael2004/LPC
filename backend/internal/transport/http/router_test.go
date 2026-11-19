@@ -51,6 +51,10 @@ func (r *testProductRepo) CreateProduct(ctx context.Context, p *domain.Product) 
 	r.products[p.ID] = p
 	return nil
 }
+func (r *testProductRepo) UpdateProduct(ctx context.Context, p *domain.Product) error {
+	r.products[p.ID] = p
+	return nil
+}
 func (r *testProductRepo) DeleteProduct(ctx context.Context, id string) error {
 	delete(r.products, id)
 	return nil

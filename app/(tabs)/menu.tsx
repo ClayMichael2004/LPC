@@ -8,20 +8,45 @@ import {
   Pressable,
   Modal,
   Switch,
+  Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, X, Plus, Pencil, Trash2 } from 'lucide-react-native';
+import {
+  Search,
+  X,
+  Plus,
+  Pencil,
+  Trash2,
+  Camera,
+  ImageIcon,
+  Sparkles,
+} from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import AppHeader from '../../src/components/AppHeader';
 import MenuItemRow from '../../src/components/MenuItemRow';
 import CartFloatingBar from '../../src/components/CartFloatingBar';
 import { MENU_TABS, PRODUCTS } from '../../src/constants/menuData';
-import { COLORS, FONT_SIZE, FONTS, RADIUS, SPACING } from '../../src/constants/theme';
+import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useCart } from '../../src/context/CartContext';
 import { useCategory } from '../../src/context/CategoryContext';
 import { useAuth } from '../../src/context/AuthContext';
-import { adminApi } from '../../src/services/api';
+import { adminApi, resolveBackendImage } from '../../src/services/api';
 import { Product } from '../../src/types';
+
+const FOOD_PRESETS = [
+  { id: 'burger-boss', name: 'Boss Burger', image: require('../../assets/images/burger-boss.png') },
+  { id: 'burger-colonel', name: 'Colonel Burger', image: require('../../assets/images/burger-colonel.png') },
+  { id: 'burger-crunch', name: 'Crunch Burger', image: require('../../assets/images/burger-crunch.png') },
+  { id: 'burger-meal', name: 'Burger Meal', image: require('../../assets/images/burger-meal.png') },
+  { id: 'cold-brew', name: 'Cold Brew', image: require('../../assets/images/cold-brew.jpg') },
+  { id: 'croissant', name: 'Flaky Croissant', image: require('../../assets/images/croissant.jpg') },
+  { id: 'pancakes', name: 'Pancakes', image: require('../../assets/images/pancakes.jpg') },
+  { id: 'latte', name: 'Vanilla Latte', image: require('../../assets/images/latte.jpg') },
+  { id: 'soda-2l', name: 'Soda 2L', image: require('../../assets/images/soda-2l.png') },
+];
 
 export default function MenuScreen() {
   const insets = useSafeAreaInsets();
@@ -51,6 +76,13 @@ export default function MenuScreen() {
   const [prodPrice, setProdPrice] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodAvailable, setProdAvailable] = useState(true);
+
+  // Food Image state
+  const [prodImageUri, setProdImageUri] = useState<string>('');
+  const [prodImageBase64, setProdImageBase64] = useState<string | null>(null);
+  const [selectedPresetImage, setSelectedPresetImage] = useState<any>(FOOD_PRESETS[0].image);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isImagePickerSheetVisible, setIsImagePickerSheetVisible] = useState(false);
 
   // Admin Category Modal state
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -115,6 +147,9 @@ export default function MenuScreen() {
     setProdPrice('');
     setProdDesc('');
     setProdAvailable(true);
+    setProdImageUri('');
+    setProdImageBase64(null);
+    setSelectedPresetImage(FOOD_PRESETS[0].image);
     setIsProductModalVisible(true);
   };
 
@@ -125,11 +160,113 @@ export default function MenuScreen() {
     setProdPrice(String(prod.price));
     setProdDesc(prod.description || '');
     setProdAvailable(prod.isAvailable !== false);
+    if (typeof prod.image === 'string') {
+      setProdImageUri(prod.image);
+      setSelectedPresetImage(null);
+    } else if (prod.image && typeof prod.image === 'object' && prod.image.uri) {
+      setProdImageUri(prod.image.uri);
+      setSelectedPresetImage(null);
+    } else {
+      setProdImageUri('');
+      setSelectedPresetImage(prod.image || FOOD_PRESETS[0].image);
+    }
+    setProdImageBase64(null);
     setIsProductModalVisible(true);
+  };
+
+  const pickFoodImageFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Photo Library Access',
+          'Please allow access to your photo library to select food pictures.'
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false, // Takes whole picture without forced cropping or zooming in
+        quality: 0.85,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setProdImageUri(asset.uri);
+        setSelectedPresetImage(null);
+        if (asset.base64) {
+          setProdImageBase64(`data:image/jpeg;base64,${asset.base64}`);
+        } else {
+          setProdImageBase64(null);
+        }
+        setIsImagePickerSheetVisible(false);
+      }
+    } catch (err: any) {
+      Alert.alert('Selection Error', err?.message || 'Could not select photo');
+    }
+  };
+
+  const takeFoodPhotoWithCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Camera Access',
+          'Please allow camera access to take pictures of menu dishes.'
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false, // Takes whole picture without forced cropping or zooming in
+        quality: 0.85,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setProdImageUri(asset.uri);
+        setSelectedPresetImage(null);
+        if (asset.base64) {
+          setProdImageBase64(`data:image/jpeg;base64,${asset.base64}`);
+        } else {
+          setProdImageBase64(null);
+        }
+        setIsImagePickerSheetVisible(false);
+      }
+    } catch (err: any) {
+      Alert.alert('Camera Error', err?.message || 'Could not launch camera');
+    }
   };
 
   const handleSaveProduct = async () => {
     if (!prodName.trim() || !prodPrice.trim()) return;
+
+    setIsUploadingImage(true);
+    let resolvedImage: any = selectedPresetImage || FOOD_PRESETS[0].image;
+
+    // 1. If base64 photo was selected/captured, upload to backend /upload endpoint
+    if (prodImageBase64) {
+      try {
+        const uploadRes = await adminApi.uploadImage(
+          prodImageBase64,
+          `food_${Date.now()}.jpg`
+        );
+        if (uploadRes?.url) {
+          resolvedImage = uploadRes.url;
+        } else if (prodImageUri) {
+          resolvedImage = { uri: prodImageUri };
+        }
+      } catch {
+        if (prodImageUri) {
+          resolvedImage = { uri: prodImageUri };
+        }
+      }
+    } else if (prodImageUri) {
+      resolvedImage = prodImageUri.startsWith('http') || prodImageUri.startsWith('file://')
+        ? { uri: prodImageUri }
+        : prodImageUri;
+    }
 
     const parsedPrice = parseFloat(prodPrice.replace(/[^0-9.]/g, '')) || 0;
     const itemPayload: Product = {
@@ -138,7 +275,7 @@ export default function MenuScreen() {
       category: prodCategory,
       price: parsedPrice,
       description: prodDesc.trim(),
-      image: editingProduct?.image || require('../../assets/images/burger-boss.png'),
+      image: resolvedImage,
       isAvailable: prodAvailable,
     };
 
@@ -149,9 +286,11 @@ export default function MenuScreen() {
     }
 
     setIsProductModalVisible(false);
+    setIsUploadingImage(false);
 
     try {
       if (editingProduct) {
+        await adminApi.updateProduct(itemPayload.id, itemPayload);
         await adminApi.updateStock(itemPayload.id, { isAvailable: prodAvailable });
       } else {
         await adminApi.createProduct(itemPayload);
@@ -326,6 +465,36 @@ export default function MenuScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
+              {/* Food Photo Selection Card */}
+              <Text style={styles.fieldLabel}>FOOD PHOTO</Text>
+              <View style={styles.imagePickerCard}>
+                <View style={styles.previewContainer}>
+                  <Image
+                    source={
+                      prodImageUri
+                        ? { uri: prodImageUri }
+                        : resolveBackendImage(selectedPresetImage || editingProduct?.image)
+                    }
+                    style={styles.foodPreviewImage}
+                    resizeMode="contain"
+                  />
+                </View>
+
+                <View style={styles.imageActionButtons}>
+                  <Pressable
+                    style={styles.pickImageBtn}
+                    onPress={() => setIsImagePickerSheetVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Select food photo"
+                  >
+                    <Camera size={16} color="#07345F" strokeWidth={2.2} />
+                    <Text style={styles.pickImageBtnText}>
+                      {prodImageUri || selectedPresetImage ? 'Change Food Photo' : 'Upload Food Photo'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
               <Text style={styles.fieldLabel}>Item Name</Text>
               <TextInput
                 style={styles.textInput}
@@ -392,11 +561,105 @@ export default function MenuScreen() {
                 />
               </View>
 
-              <Pressable style={styles.saveBtn} onPress={handleSaveProduct}>
-                <Text style={styles.saveBtnText}>
-                  {editingProduct ? 'Save Product Details' : 'Add to Menu'}
-                </Text>
+              <Pressable
+                style={[styles.saveBtn, isUploadingImage && { opacity: 0.7 }]}
+                onPress={handleSaveProduct}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.saveBtnText}>
+                    {editingProduct ? 'Save Product Details' : 'Add to Menu'}
+                  </Text>
+                )}
               </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Canva-style Food Image Picker Sheet Modal */}
+      <Modal
+        visible={isImagePickerSheetVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsImagePickerSheetVisible(false)}
+      >
+        <View style={styles.pickerSheetBackdrop}>
+          <View style={styles.pickerSheetCard}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select Food Photo</Text>
+                <Text style={styles.modalSubTitle}>
+                  Take a photo or choose from gallery (no cropping needed)
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setIsImagePickerSheetVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close photo picker"
+              >
+                <X size={20} color={COLORS.heading} />
+              </Pressable>
+            </View>
+
+            <View style={styles.pickerOptionsRow}>
+              <Pressable
+                style={styles.pickerOptionCard}
+                onPress={takeFoodPhotoWithCamera}
+                accessibilityRole="button"
+                accessibilityLabel="Take food photo with camera"
+              >
+                <View style={[styles.pickerIconCircle, { backgroundColor: '#DCFCE7' }]}>
+                  <Camera size={22} color="#075B35" strokeWidth={2.2} />
+                </View>
+                <Text style={styles.pickerOptionTitle}>Take Photo</Text>
+                <Text style={styles.pickerOptionSub}>Use Camera</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.pickerOptionCard}
+                onPress={pickFoodImageFromGallery}
+                accessibilityRole="button"
+                accessibilityLabel="Choose food photo from library"
+              >
+                <View style={[styles.pickerIconCircle, { backgroundColor: '#DBEAFE' }]}>
+                  <ImageIcon size={22} color="#07345F" strokeWidth={2.2} />
+                </View>
+                <Text style={styles.pickerOptionTitle}>Photo Library</Text>
+                <Text style={styles.pickerOptionSub}>Choose from Gallery</Text>
+              </Pressable>
+            </View>
+
+            {/* Cafe Presets Grid/Row */}
+            <Text style={styles.presetSectionTitle}>OR CHOOSE A CAFE PRESET</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.presetsScroll}
+            >
+              {FOOD_PRESETS.map((preset) => (
+                <Pressable
+                  key={preset.id}
+                  style={[
+                    styles.presetThumbCard,
+                    selectedPresetImage === preset.image && styles.presetThumbSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedPresetImage(preset.image);
+                    setProdImageUri('');
+                    setProdImageBase64(null);
+                    setIsImagePickerSheetVisible(false);
+                  }}
+                >
+                  <Image source={preset.image} style={styles.presetThumbImg} resizeMode="contain" />
+                  <Text style={styles.presetThumbText} numberOfLines={1}>
+                    {preset.name}
+                  </Text>
+                </Pressable>
+              ))}
             </ScrollView>
           </View>
         </View>
@@ -675,5 +938,141 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 14,
     color: COLORS.white,
+  },
+
+  // Food Photo Upload & Preview
+  imagePickerCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: SPACING.sm,
+    alignItems: 'center',
+    gap: 8,
+  },
+  previewContainer: {
+    width: '100%',
+    height: 160,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  foodPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageActionButtons: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  pickImageBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#DBEAFE',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
+  },
+  pickImageBtnText: {
+    fontFamily: FONTS.semibold,
+    fontSize: 13,
+    color: '#07345F',
+  },
+
+  // Picker Sheet Modal
+  pickerSheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheetCard: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    paddingBottom: 36,
+  },
+  modalSubTitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  pickerOptionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginVertical: SPACING.md,
+  },
+  pickerOptionCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 18,
+    ...SHADOW.soft,
+  },
+  pickerIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  pickerOptionTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    color: COLORS.heading,
+  },
+  pickerOptionSub: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  presetSectionTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  presetsScroll: {
+    gap: 10,
+    paddingVertical: 4,
+  },
+  presetThumbCard: {
+    width: 84,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    padding: 6,
+  },
+  presetThumbSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: '#FFF1F2',
+  },
+  presetThumbImg: {
+    width: 60,
+    height: 52,
+    marginBottom: 4,
+  },
+  presetThumbText: {
+    fontFamily: FONTS.medium,
+    fontSize: 10,
+    color: COLORS.heading,
+    textAlign: 'center',
   },
 });

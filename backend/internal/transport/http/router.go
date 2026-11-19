@@ -151,6 +151,7 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 			// Admin Menu & Stock Management (Purges Redis cache)
 			adminGroup.PATCH("/menu/products/:id/stock", h.AdminHandler.UpdateStock)
 			adminGroup.POST("/menu/products", h.AdminHandler.CreateProduct)
+			adminGroup.PUT("/menu/products/:id", h.AdminHandler.UpdateProduct)
 			adminGroup.DELETE("/menu/products/:id", h.AdminHandler.DeleteProduct)
 
 			// Admin Specials & Features

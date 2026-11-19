@@ -5,6 +5,7 @@ import { Plus, Minus, Pencil, Trash2 } from 'lucide-react-native';
 import { Product } from '../types';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SPACING } from '../constants/theme';
 import { useCart } from '../context/CartContext';
+import { resolveBackendImage } from '../services/api';
 
 interface MenuItemRowProps {
   product: Product;
@@ -65,7 +66,11 @@ export default function MenuItemRow({
         accessibilityLabel={`${product.name}, KSh ${product.price.toLocaleString()}`}
       >
         <View style={styles.imageBox}>
-          <Image source={product.image} style={styles.productImage} resizeMode="contain" />
+          <Image
+            source={resolveBackendImage(product.image)}
+            style={styles.productImage}
+            resizeMode="contain"
+          />
         </View>
 
         <View style={styles.infoBox}>
