@@ -427,11 +427,9 @@ export default function LoginScreen() {
           accessibilityRole="button"
           accessibilityLabel="Sign in with Google"
         >
-          <Image
-            source={require('../../assets/images/google-icon.png')}
-            style={styles.googleIcon}
-            resizeMode="contain"
-          />
+          <View style={styles.googleIconCircle}>
+            <Text style={styles.googleGText}>G</Text>
+          </View>
           <Text style={styles.googleButtonText}>Continue with Google</Text>
         </Pressable>
 
@@ -805,10 +803,20 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     ...SHADOW.soft,
   },
-  googleIcon: {
-    width: 20,
-    height: 20,
+  googleIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4285F4',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 10,
+  },
+  googleGText: {
+    color: COLORS.white,
+    fontFamily: FONTS.bold,
+    fontSize: 14,
+    lineHeight: 16,
   },
   googleButtonText: {
     fontFamily: FONTS.semibold,
