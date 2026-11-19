@@ -17,4 +17,6 @@ yarn-error.*
 !backend/.env.example
 backend/bin/
 backend/.env
+backend/uploads/*
+!backend/uploads/.gitkeep
 *.exe

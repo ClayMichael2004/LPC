@@ -10,13 +10,15 @@ import {
   Modal,
   Linking,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, X, MessageCircle, ShieldCheck } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
-import { activitiesApi } from '../../src/services/api';
+import { activitiesApi, resolveUploadUrl } from '../../src/services/api';
+import RefreshSpinnerHeader from '../../src/components/RefreshSpinnerHeader';
 import { useAuth } from '../../src/context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -59,10 +61,12 @@ export default function ActivitiesGalleryScreen() {
 
   const [photos, setPhotos] = useState<any[]>(ALL_GALLERY_PHOTOS);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const resolveGallerySource = (source: any) => {
     if (!source) return PRESET_GALLERY_IMAGES[0];
     if (typeof source === 'number') return source;
+    if (typeof source === 'object' && source?.uri) return source;
     if (typeof source === 'string') {
       if (
         source.startsWith('data:image') ||
@@ -72,58 +76,68 @@ export default function ActivitiesGalleryScreen() {
       ) {
         return { uri: source };
       }
-      if (source.startsWith('/uploads')) {
-        const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-        return { uri: `http://${host}:8085${source}` };
+      if (source.startsWith('/uploads') || source.startsWith('uploads/')) {
+        return { uri: resolveUploadUrl(source) };
       }
       const match = source.match(/painting-(\d+)/);
       if (match && match[1]) {
         const idx = parseInt(match[1], 10) - 1;
         if (PRESET_GALLERY_IMAGES[idx]) return PRESET_GALLERY_IMAGES[idx];
       }
-      return { uri: source };
+      return { uri: resolveUploadUrl(source) };
     }
     return source;
   };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const serverPhotos = await activitiesApi.getGallery();
-        if (Array.isArray(serverPhotos) && serverPhotos.length > 0) {
-          const formatted = serverPhotos.map((item: any) => ({
-            id: item.id,
-            source: resolveGallerySource(item.source),
-            label: item.label,
-          }));
-          setPhotos(formatted);
-          return;
-        }
-      } catch {
-        // Fallback
+  const loadPhotos = async () => {
+    try {
+      const serverPhotos = await activitiesApi.getGallery();
+      if (Array.isArray(serverPhotos) && serverPhotos.length > 0) {
+        const formatted = serverPhotos.map((item: any) => ({
+          id: item.id,
+          source: resolveGallerySource(item.source),
+          label: item.label,
+        }));
+        setPhotos(formatted);
+        return;
       }
+    } catch {
+      // Fallback
+    }
 
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_GALLERY_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const rehydrated = parsed.map((item: any) => {
-              if (item.presetIndex !== undefined && PRESET_GALLERY_IMAGES[item.presetIndex]) {
-                return { ...item, source: PRESET_GALLERY_IMAGES[item.presetIndex] };
-              }
-              if (item.uri) {
-                return { ...item, source: resolveGallerySource(item.uri) };
-              }
-              return item;
-            });
-            setPhotos(rehydrated);
-          }
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_GALLERY_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const rehydrated = parsed.map((item: any) => {
+            if (item.presetIndex !== undefined && PRESET_GALLERY_IMAGES[item.presetIndex]) {
+              return { ...item, source: PRESET_GALLERY_IMAGES[item.presetIndex] };
+            }
+            if (item.uri) {
+              return { ...item, source: resolveGallerySource(item.uri) };
+            }
+            return item;
+          });
+          setPhotos(rehydrated);
         }
-      } catch {
-        // Keep defaults
       }
-    })();
+    } catch {
+      // Keep defaults
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadPhotos();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPhotos();
   }, []);
 
   const handleBookViaWhatsApp = () => {
@@ -164,7 +178,17 @@ export default function ActivitiesGalleryScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 110 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={['#E11D48']}
+          />
+        }
       >
+        <RefreshSpinnerHeader refreshing={isRefreshing} label="Refreshing gallery photos..." />
+
         <View style={styles.introRow}>
           <Text style={styles.introText}>
             Tap any photo to expand. Held Sundays 12–2 PM.
@@ -184,7 +208,12 @@ export default function ActivitiesGalleryScreen() {
               accessibilityRole="button"
               accessibilityLabel={`View ${item.label}`}
             >
-              <Image source={item.source} style={styles.photoThumbnail} resizeMode="cover" />
+              <Image
+                source={item.source}
+                style={styles.photoThumbnail}
+                resizeMode="cover"
+                defaultSource={PRESET_GALLERY_IMAGES[0]}
+              />
               <View style={styles.photoOverlay}>
                 <Text style={styles.photoLabel} numberOfLines={1}>
                   {item.label}
@@ -238,6 +267,7 @@ export default function ActivitiesGalleryScreen() {
                 source={selectedImage.source}
                 style={styles.modalImage}
                 resizeMode="contain"
+                defaultSource={PRESET_GALLERY_IMAGES[0]}
               />
               <Text style={styles.modalCaption}>{selectedImage.label}</Text>
             </View>

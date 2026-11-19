@@ -334,6 +334,8 @@ func (h *AdminHandler) GetAudience(c *gin.Context) {
 		target := u.Email
 		if channel == "whatsapp" {
 			target = u.Phone
+		} else if channel == "in-app" {
+			target = "In-App Notification Center"
 		}
 		simpleAudience = append(simpleAudience, gin.H{
 			"id":     u.ID,
@@ -352,7 +354,7 @@ func (h *AdminHandler) GetAudience(c *gin.Context) {
 func (h *AdminHandler) SendBroadcast(c *gin.Context) {
 	var req domain.SendBroadcastRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		JSONError(c, http.StatusBadRequest, "Channel (email or whatsapp), subject, and message are required.")
+		JSONError(c, http.StatusBadRequest, "Channel (email, whatsapp, or in-app), subject, and message are required.")
 		return
 	}
 

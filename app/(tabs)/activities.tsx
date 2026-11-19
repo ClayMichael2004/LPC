@@ -14,6 +14,7 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -42,8 +43,9 @@ import {
   Image as ImageIcon,
 } from 'lucide-react-native';
 import AppHeader from '../../src/components/AppHeader';
+import RefreshSpinnerHeader from '../../src/components/RefreshSpinnerHeader';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
-import { activitiesApi, adminApi } from '../../src/services/api';
+import { activitiesApi, adminApi, resolveUploadUrl } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -146,9 +148,12 @@ export default function ActivitiesScreen() {
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const resolveGallerySource = (source: any) => {
     if (!source) return PRESET_GALLERY_IMAGES[0];
     if (typeof source === 'number') return source;
+    if (typeof source === 'object' && source?.uri) return source;
     if (typeof source === 'string') {
       if (
         source.startsWith('data:image') ||
@@ -158,18 +163,26 @@ export default function ActivitiesScreen() {
       ) {
         return { uri: source };
       }
-      if (source.startsWith('/uploads')) {
-        const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-        return { uri: `http://${host}:8085${source}` };
+      if (source.startsWith('/uploads') || source.startsWith('uploads/')) {
+        return { uri: resolveUploadUrl(source) };
       }
       const match = source.match(/painting-(\d+)/);
       if (match && match[1]) {
         const idx = parseInt(match[1], 10) - 1;
         if (PRESET_GALLERY_IMAGES[idx]) return PRESET_GALLERY_IMAGES[idx];
       }
-      return { uri: source };
+      return { uri: resolveUploadUrl(source) };
     }
     return source;
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([loadBadges(), loadGallery()]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Load Badges from Backend with AsyncStorage offline cache
@@ -480,19 +493,49 @@ export default function ActivitiesScreen() {
       }
 
       // 1. Post to backend gallery
-      await adminApi.addGalleryPhoto({
+      const createdPhoto = await adminApi.addGalleryPhoto({
         source: photoSource,
         label: photoLabel.trim(),
       });
 
-      // 2. Refresh from backend so both admin and customers see it instantly
-      await loadGallery();
+      // 2. Immediately prepend to local gallery with direct URI so admin sees it instantly without waiting
+      const localItem: GalleryPhotoItem = {
+        id: createdPhoto?.id || `gal-${Date.now()}`,
+        source: customPhotoUri
+          ? { uri: customPhotoUri }
+          : (photoBase64 ? { uri: photoBase64 } : resolveGallerySource(photoSource)),
+        label: photoLabel.trim(),
+        isCustomUri: true,
+      };
+      setGallery((prev) => [localItem, ...prev.filter((p) => p.id !== localItem.id)]);
+
+      // 3. Save to local storage cache
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_GALLERY_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        await AsyncStorage.setItem(
+          STORAGE_GALLERY_KEY,
+          JSON.stringify([
+            {
+              id: localItem.id,
+              uri: customPhotoUri || photoBase64 || resolveUploadUrl(photoSource),
+              label: photoLabel.trim(),
+            },
+            ...list.filter((x: any) => x.id !== localItem.id),
+          ])
+        );
+      } catch {
+        // ignore
+      }
+
+      // 4. Refresh from backend in background
+      loadGallery().catch(() => {});
 
       setPhotoModalVisible(false);
       setCustomPhotoUri('');
       setPhotoBase64(null);
       setPhotoLabel('');
-      Alert.alert('Success', 'Event photo published! It is now live on the customer side.');
+      Alert.alert('Success', 'Event photo published! It is now live in the gallery.');
     } catch (err: any) {
       Alert.alert('Upload Failed', err?.message || 'Could not publish photo. Please try again.');
     } finally {
@@ -558,7 +601,17 @@ export default function ActivitiesScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 130 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={['#E11D48']}
+          />
+        }
       >
+        <RefreshSpinnerHeader refreshing={isRefreshing} label="Refreshing activities & gallery..." />
+
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <Text style={styles.heroTitle}>Sunday Family Oil Painting</Text>
@@ -756,7 +809,12 @@ export default function ActivitiesScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`View ${item.label}`}
               >
-                <Image source={item.source} style={styles.photoThumbnail} resizeMode="cover" />
+                <Image
+                  source={item.source}
+                  style={styles.photoThumbnail}
+                  resizeMode="cover"
+                  defaultSource={PRESET_GALLERY_IMAGES[0]}
+                />
                 <View style={styles.photoOverlay}>
                   <Text style={styles.photoLabel} numberOfLines={1}>
                     {item.label}
@@ -855,6 +913,7 @@ export default function ActivitiesScreen() {
                 source={selectedImage.source}
                 style={styles.modalImage}
                 resizeMode="contain"
+                defaultSource={PRESET_GALLERY_IMAGES[0]}
               />
               <Text style={styles.modalCaption}>{selectedImage.label}</Text>
             </View>

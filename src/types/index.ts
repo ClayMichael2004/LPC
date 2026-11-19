@@ -172,7 +172,7 @@ export interface BroadcastRecipient {
 
 export interface BroadcastLog {
   id: string;
-  channel: 'email' | 'whatsapp';
+  channel: 'email' | 'whatsapp' | 'in-app';
   subject: string;
   message: string;
   sentAt: string;

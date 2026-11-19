@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -21,6 +22,7 @@ import {
   Megaphone,
   Sparkles,
 } from 'lucide-react-native';
+import RefreshSpinnerHeader from '../src/components/RefreshSpinnerHeader';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
 import { adminApi, notificationsApi } from '../src/services/api';
@@ -88,6 +90,7 @@ export default function NotificationsScreen() {
   const [adminTab, setAdminTab] = useState<'all' | 'registration' | 'order' | 'broadcast'>('all');
   const [adminNotifications, setAdminNotifications] = useState<AdminNotification[]>([]);
   const [loadingAdminNotifs, setLoadingAdminNotifs] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const storageKey = `${NOTIF_STORAGE_PREFIX}${user?.id || 'guest'}`;
 
@@ -207,6 +210,19 @@ export default function NotificationsScreen() {
       } catch {
         // Ignore write error
       }
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (isAdmin) {
+        await fetchAdminNotifications();
+      } else {
+        await fetchCustomerNotifications();
+      }
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -336,7 +352,16 @@ export default function NotificationsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 110 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={['#E11D48']}
+          />
+        }
       >
+        <RefreshSpinnerHeader refreshing={isRefreshing} label="Refreshing notifications..." />
         {isAdmin ? (
           // Admin Operational Notifications
           loadingAdminNotifs ? (

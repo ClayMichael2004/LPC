@@ -253,6 +253,8 @@ func (s *AdminService) GetAudience(ctx context.Context, channel string) ([]*doma
 			eligible = append(eligible, u)
 		} else if channel == "whatsapp" && len(strings.TrimSpace(u.Phone)) >= 9 {
 			eligible = append(eligible, u)
+		} else if channel == "in-app" {
+			eligible = append(eligible, u)
 		}
 	}
 	return eligible, nil
@@ -279,6 +281,8 @@ func (s *AdminService) SendBroadcast(ctx context.Context, req domain.SendBroadca
 		target := u.Email
 		if channel == "whatsapp" {
 			target = u.Phone
+		} else if channel == "in-app" {
+			target = "In-App Notification Center"
 		}
 
 		recipients = append(recipients, domain.BroadcastRecipient{
@@ -298,6 +302,12 @@ func (s *AdminService) SendBroadcast(ctx context.Context, req domain.SendBroadca
 		} else if channel == "whatsapp" {
 			log.Printf("==================================================================")
 			log.Printf("[WHATSAPP BROADCAST DISPATCH] To: %s (%s)", u.Phone, u.Name)
+			log.Printf("[SUBJECT] %s", subject)
+			log.Printf("[MESSAGE] %s", message)
+			log.Printf("==================================================================")
+		} else if channel == "in-app" {
+			log.Printf("==================================================================")
+			log.Printf("[IN-APP NOTIFICATION DISPATCH] User: %s (%s)", u.ID, u.Name)
 			log.Printf("[SUBJECT] %s", subject)
 			log.Printf("[MESSAGE] %s", message)
 			log.Printf("==================================================================")

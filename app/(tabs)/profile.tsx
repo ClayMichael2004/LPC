@@ -13,14 +13,14 @@ import {
 } from 'lucide-react-native';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
-import { adminApi } from '../../src/services/api';
+import { adminApi, notificationsApi } from '../../src/services/api';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, signOut, isAuthenticated, showSignInModal } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [unreadAdminNotifs, setUnreadAdminNotifs] = useState(0);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
 
   useEffect(() => {
     if (isAdmin) {
@@ -28,7 +28,16 @@ export default function ProfileScreen() {
         .getNotifications()
         .then((list) => {
           if (Array.isArray(list)) {
-            setUnreadAdminNotifs(list.filter((n) => !n.read).length);
+            setUnreadNotifs(list.filter((n) => !n.read).length);
+          }
+        })
+        .catch(() => {});
+    } else {
+      notificationsApi
+        .getCustomerNotifications()
+        .then((list) => {
+          if (Array.isArray(list)) {
+            setUnreadNotifs(list.filter((n) => !n.read).length);
           }
         })
         .catch(() => {});
@@ -92,7 +101,7 @@ export default function ProfileScreen() {
             accessibilityLabel="Notifications"
           >
             <Bell size={24} color={COLORS.heading} strokeWidth={2} />
-            {isAdmin && unreadAdminNotifs > 0 && (
+            {unreadNotifs > 0 && (
               <View style={styles.bellBadgeDot} />
             )}
           </Pressable>

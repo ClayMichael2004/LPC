@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ import {
 import AppHeader from '../../src/components/AppHeader';
 import BannerCarousel from '../../src/components/BannerCarousel';
 import BrowseCategoriesSlideshow from '../../src/components/BrowseCategoriesSlideshow';
+import RefreshSpinnerHeader from '../../src/components/RefreshSpinnerHeader';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useCategory } from '../../src/context/CategoryContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -92,6 +94,7 @@ export default function HomeScreen() {
   const isAdmin = user?.role === 'admin';
 
   const [specials, setSpecials] = useState<SpecialPromo[]>(INITIAL_SPECIALS);
+  const [refreshing, setRefreshing] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingSpecial, setEditingSpecial] = useState<SpecialPromo | null>(null);
 
@@ -102,22 +105,31 @@ export default function HomeScreen() {
   const [formIcon, setFormIcon] = useState('coffee');
   const [formTheme, setFormTheme] = useState(PASTEL_THEMES[0]);
 
+  const fetchSpecials = async () => {
+    try {
+      const data = await adminApi.getSpecials();
+      if (Array.isArray(data) && data.length > 0) {
+        setSpecials(data);
+      }
+    } catch {
+      // Fallback to initial
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
-    adminApi
-      .getSpecials()
-      .then((data) => {
-        if (mounted && Array.isArray(data) && data.length > 0) {
-          setSpecials(data);
-        }
-      })
-      .catch(() => {
-        // Fallback to initial
-      });
-    return () => {
-      mounted = false;
-    };
+    fetchSpecials();
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchSpecials();
+    } finally {
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 500);
+    }
+  };
 
   const handleOpenAddModal = () => {
     setEditingSpecial(null);
@@ -215,7 +227,17 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 130 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={['transparent']}
+          />
+        }
       >
+        <RefreshSpinnerHeader refreshing={refreshing} />
+
         {/* Top Hero Cards */}
         <BannerCarousel />
 

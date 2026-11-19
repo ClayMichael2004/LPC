@@ -35,7 +35,7 @@ type BroadcastLog struct {
 
 // SendBroadcastRequest payload to dispatch a bulk communication.
 type SendBroadcastRequest struct {
-	Channel string `json:"channel" binding:"required,oneof=email whatsapp"`
+	Channel string `json:"channel" binding:"required,oneof=email whatsapp in-app"`
 	Subject string `json:"subject" binding:"required"`
 	Message string `json:"message" binding:"required"`
 }

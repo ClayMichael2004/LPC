@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   Mail,
   MessageCircle,
+  Bell,
   Users,
   Send,
   History,
@@ -35,7 +36,7 @@ export default function CommunicationHubScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [channel, setChannel] = useState<'email' | 'whatsapp'>('email');
+  const [channel, setChannel] = useState<'email' | 'whatsapp' | 'in-app'>('email');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [audienceCount, setAudienceCount] = useState<number>(0);
@@ -57,7 +58,7 @@ export default function CommunicationHubScreen() {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
   // Fetch Audience for active channel
-  const fetchAudience = useCallback(async (chan: 'email' | 'whatsapp') => {
+  const fetchAudience = useCallback(async (chan: 'email' | 'whatsapp' | 'in-app') => {
     setLoadingAudience(true);
     try {
       const data = await adminApi.getAudience(chan);
@@ -102,8 +103,11 @@ export default function CommunicationHubScreen() {
   };
 
   const handleConfirmSend = () => {
-    if (channel === 'email' && !subject.trim()) {
-      Alert.alert('Subject Required', 'Please provide a clear subject line for your email announcement.');
+    if ((channel === 'email' || channel === 'in-app') && !subject.trim()) {
+      Alert.alert(
+        'Title Required',
+        `Please provide a clear ${channel === 'email' ? 'subject line' : 'title'} for your announcement.`
+      );
       return;
     }
     if (!message.trim()) {
@@ -111,11 +115,18 @@ export default function CommunicationHubScreen() {
       return;
     }
 
+    const channelLabel =
+      channel === 'email'
+        ? 'EMAIL'
+        : channel === 'whatsapp'
+        ? 'WHATSAPP'
+        : 'IN-APP';
+
     Alert.alert(
       'Confirm Broadcast',
-      `Send this ${channel.toUpperCase()} announcement to ${audienceCount} registered customer${
+      `Send this ${channelLabel} announcement to ${audienceCount} registered customer${
         audienceCount === 1 ? '' : 's'
-      } who opted in?`,
+      }${channel === 'in-app' ? ' via their in-app notifications center' : ' who opted in'}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -261,6 +272,30 @@ export default function CommunicationHubScreen() {
               WhatsApp Updates
             </Text>
           </Pressable>
+
+          <Pressable
+            style={[
+              styles.channelTab,
+              channel === 'in-app' && styles.channelTabActiveInApp,
+            ]}
+            onPress={() => setChannel('in-app')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: channel === 'in-app' }}
+          >
+            <Bell
+              size={18}
+              color={channel === 'in-app' ? '#4C1D95' : COLORS.textSecondary}
+              strokeWidth={2.2}
+            />
+            <Text
+              style={[
+                styles.channelTabText,
+                channel === 'in-app' && styles.channelTabTextActiveInApp,
+              ]}
+            >
+              In-App Notice
+            </Text>
+          </Pressable>
         </View>
 
         {/* Live Audience Info Card */}
@@ -279,7 +314,11 @@ export default function CommunicationHubScreen() {
                   </Text>
                 )}
                 <Text style={styles.audienceSubText}>
-                  Opted in to {channel === 'email' ? 'Email specials & receipts' : 'WhatsApp updates'}
+                  {channel === 'email'
+                    ? 'Opted in to Email specials & receipts'
+                    : channel === 'whatsapp'
+                    ? 'Opted in to WhatsApp updates'
+                    : 'Delivers to customer in-app notification center (Profile Bell)'}
                 </Text>
               </View>
             </View>
@@ -319,12 +358,18 @@ export default function CommunicationHubScreen() {
 
         {/* Message Composition Form */}
         <View style={styles.formCard}>
-          {channel === 'email' && (
+          {(channel === 'email' || channel === 'in-app') && (
             <>
-              <Text style={styles.fieldLabel}>SUBJECT LINE</Text>
+              <Text style={styles.fieldLabel}>
+                {channel === 'email' ? 'EMAIL SUBJECT LINE' : 'NOTIFICATION TITLE'}
+              </Text>
               <TextInput
                 style={styles.subjectInput}
-                placeholder="e.g. Sunday Family Oil Painting & Fresh Brioche"
+                placeholder={
+                  channel === 'email'
+                    ? 'e.g. Sunday Family Oil Painting & Fresh Brioche'
+                    : 'e.g. Sunday Family Oil Painting Workshop'
+                }
                 placeholderTextColor={COLORS.textSecondary}
                 value={subject}
                 onChangeText={setSubject}
@@ -341,7 +386,9 @@ export default function CommunicationHubScreen() {
             placeholder={
               channel === 'email'
                 ? 'Type your announcement here. Your Little Polo Cafe branding will be wrapped automatically...'
-                : 'Type your WhatsApp update. Keep it friendly and concise...'
+                : channel === 'whatsapp'
+                ? 'Type your WhatsApp update. Keep it friendly and concise...'
+                : 'Type the in-app announcement text. Delivered directly to the customer notification bell...'
             }
             placeholderTextColor={COLORS.textSecondary}
             value={message}
@@ -662,6 +709,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
     borderColor: '#86EFAC',
   },
+  channelTabActiveInApp: {
+    backgroundColor: '#E5D9FF',
+    borderColor: '#C4B5FD',
+  },
   channelTabText: {
     fontFamily: FONTS.semibold,
     fontSize: 13,
@@ -672,6 +723,9 @@ const styles = StyleSheet.create({
   },
   channelTabTextActiveWhatsApp: {
     color: '#075B35',
+  },
+  channelTabTextActiveInApp: {
+    color: '#4C1D95',
   },
   audienceCard: {
     backgroundColor: COLORS.white,

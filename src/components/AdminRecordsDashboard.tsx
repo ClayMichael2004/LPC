@@ -11,7 +11,9 @@ import {
   Linking,
   ActivityIndicator,
   Animated,
+  RefreshControl,
 } from 'react-native';
+import RefreshSpinnerHeader from './RefreshSpinnerHeader';
 import {
   Search,
   X,
@@ -199,7 +201,16 @@ export default function AdminRecordsDashboard() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => fetchOrders(true)}
+            tintColor="transparent"
+            colors={['#E11D48']}
+          />
+        }
       >
+        <RefreshSpinnerHeader refreshing={isRefreshing} label="Refreshing cafe orders..." />
         {/* Summary Stats Carousel / Grid */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>

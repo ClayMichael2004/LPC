@@ -42,6 +42,21 @@ export const API_BASE_URL =
 export const WS_BASE_URL =
   process.env.EXPO_PUBLIC_WS_URL || `ws://${DEFAULT_HOST}/ws`;
 
+export function resolveUploadUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return '';
+  if (
+    pathOrUrl.startsWith('http://') ||
+    pathOrUrl.startsWith('https://') ||
+    pathOrUrl.startsWith('data:image') ||
+    pathOrUrl.startsWith('file://')
+  ) {
+    return pathOrUrl;
+  }
+  const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+  const cleanPath = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+  return `${baseUrl}${cleanPath}`;
+}
+
 export const TOKEN_STORAGE_KEY = '@lpc_auth_token';
 export const USER_STORAGE_KEY = '@lpc_auth_user';
 export const LAST_ORDER_STORAGE_KEY = '@lpc_last_order_id';
@@ -544,13 +559,13 @@ export const adminApi = {
       method: 'DELETE',
     }),
 
-  getAudience: (channel: 'email' | 'whatsapp') =>
+  getAudience: (channel: 'email' | 'whatsapp' | 'in-app') =>
     apiRequest<{ channel: string; count: number; recipients: Array<{ id: string; name: string; target: string }> }>(
       `/admin/communications/audience?channel=${channel}`,
       { method: 'GET' }
     ),
 
-  sendBroadcast: (channel: 'email' | 'whatsapp', subject: string, message: string) =>
+  sendBroadcast: (channel: 'email' | 'whatsapp' | 'in-app', subject: string, message: string) =>
     apiRequest<BroadcastLog>('/admin/communications/send', {
       method: 'POST',
       body: JSON.stringify({ channel, subject, message }),
