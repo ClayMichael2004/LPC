@@ -277,6 +277,7 @@ export default function MenuScreen() {
       description: prodDesc.trim(),
       image: resolvedImage,
       isAvailable: prodAvailable,
+      stockQuantity: prodAvailable ? 999 : 0,
     };
 
     if (editingProduct) {
@@ -291,7 +292,10 @@ export default function MenuScreen() {
     try {
       if (editingProduct) {
         await adminApi.updateProduct(itemPayload.id, itemPayload);
-        await adminApi.updateStock(itemPayload.id, { isAvailable: prodAvailable });
+        await adminApi.updateStock(itemPayload.id, {
+          isAvailable: prodAvailable,
+          stockQuantity: prodAvailable ? 999 : 0,
+        });
       } else {
         await adminApi.createProduct(itemPayload);
       }

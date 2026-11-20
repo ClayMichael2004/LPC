@@ -94,6 +94,13 @@ func (r *OrderRepository) CreateOrderAtomic(ctx context.Context, order *domain.O
 			}
 		}
 
+		// Auto-replenish: If product is explicitly available but stock is 0 or less, default to 999
+		// so newly created or toggled-on menu items can be ordered immediately
+		if stockQty <= 0 {
+			stockQty = 999
+			_, _ = tx.Exec(ctx, "UPDATE products SET stock_quantity = 999 WHERE id = $1", pid)
+		}
+
 		// -1 signifies unlimited stock
 		if stockQty != -1 && stockQty < requestedQty {
 			return OutOfStockError{

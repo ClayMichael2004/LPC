@@ -339,6 +339,9 @@ func (r *MemoryProductRepo) UpdateStock(ctx context.Context, id string, isAvaila
 	}
 	if isAvailable != nil {
 		p.IsAvailable = *isAvailable
+		if *isAvailable && p.StockQuantity <= 0 {
+			p.StockQuantity = 999
+		}
 	}
 	if stockQty != nil {
 		p.StockQuantity = *stockQty
@@ -350,6 +353,9 @@ func (r *MemoryProductRepo) UpdateStock(ctx context.Context, id string, isAvaila
 func (r *MemoryProductRepo) CreateProduct(ctx context.Context, p *domain.Product) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if p.IsAvailable && p.StockQuantity <= 0 {
+		p.StockQuantity = 999
+	}
 	now := domain.NowEAT()
 	p.CreatedAt = now
 	p.UpdatedAt = now
@@ -381,6 +387,9 @@ func (r *MemoryProductRepo) UpdateProduct(ctx context.Context, p *domain.Product
 		existing.Image = p.Image
 	}
 	existing.IsAvailable = p.IsAvailable
+	if p.IsAvailable && existing.StockQuantity <= 0 {
+		existing.StockQuantity = 999
+	}
 	existing.UpdatedAt = domain.NowEAT()
 	return nil
 }
@@ -427,6 +436,9 @@ func (r *MemoryOrderRepo) CreateOrderAtomic(ctx context.Context, order *domain.O
 			if !p.IsAvailable {
 				r.productRepo.mu.Unlock()
 				return postgres.UnavailableProductError{ProductID: p.ID, ProductName: p.Name}
+			}
+			if p.StockQuantity <= 0 {
+				p.StockQuantity = 999
 			}
 			if p.StockQuantity != -1 && p.StockQuantity < item.Quantity {
 				r.productRepo.mu.Unlock()

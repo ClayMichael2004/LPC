@@ -26,7 +26,7 @@ type DB struct {
 	Pool *pgxpool.Pool
 }
 
-// Connect initializes a connection pool to PostgreSQL.
+// Connect initializes a connection pool to PostgreSQL with resilient retry logic.
 func Connect(ctx context.Context, databaseURL string) (*DB, error) {
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
@@ -38,21 +38,35 @@ func Connect(ctx context.Context, databaseURL string) (*DB, error) {
 	cfg.MaxConnLifetime = 1 * time.Hour
 	cfg.MaxConnIdleTime = 15 * time.Minute
 
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create pgxpool: %w", err)
+	var pool *pgxpool.Pool
+	var lastErr error
+
+	// Retry loop: up to 10 attempts (total ~20s) to allow PostgreSQL container to finish initializing
+	for attempt := 1; attempt <= 10; attempt++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		pool, err = pgxpool.NewWithConfig(ctx, cfg)
+		if err == nil {
+			pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			err = pool.Ping(pingCtx)
+			cancel()
+			if err == nil {
+				log.Printf("[PostgreSQL] Connected successfully to %s on attempt %d", cfg.ConnConfig.Database, attempt)
+				return &DB{Pool: pool}, nil
+			}
+			pool.Close()
+		}
+
+		lastErr = err
+		log.Printf("[PostgreSQL] Connection attempt %d/10 failed (%v), retrying in 2s...", attempt, err)
+		time.Sleep(2 * time.Second)
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	if err := pool.Ping(pingCtx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("failed to ping postgres database: %w", err)
-	}
-
-	log.Printf("[PostgreSQL] Connected successfully to %s", cfg.ConnConfig.Database)
-	return &DB{Pool: pool}, nil
+	return nil, fmt.Errorf("failed to connect to postgres after 10 attempts: %w", lastErr)
 }
 
 // Close gracefully closes all database connections.

@@ -193,7 +193,10 @@ func (r *ProductRepository) UpdateStock(ctx context.Context, id string, isAvaila
 	query := `
 		UPDATE products
 		SET is_available = COALESCE($1, is_available),
-		    stock_quantity = COALESCE($2, stock_quantity),
+		    stock_quantity = CASE 
+		        WHEN $1 = true AND COALESCE($2, stock_quantity) <= 0 THEN 999 
+		        ELSE COALESCE($2, stock_quantity) 
+		    END,
 		    updated_at = $3
 		WHERE id = $4
 	`
@@ -209,6 +212,9 @@ func (r *ProductRepository) UpdateStock(ctx context.Context, id string, isAvaila
 
 func (r *ProductRepository) CreateProduct(ctx context.Context, p *domain.Product) error {
 	now := time.Now()
+	if p.IsAvailable && p.StockQuantity <= 0 {
+		p.StockQuantity = 999
+	}
 	query := `
 		INSERT INTO products (id, name, category_id, price, description, image, has_options, is_available, stock_quantity, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -226,6 +232,9 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, p *domain.Product
 
 func (r *ProductRepository) UpdateProduct(ctx context.Context, p *domain.Product) error {
 	now := time.Now()
+	if p.IsAvailable && p.StockQuantity <= 0 {
+		p.StockQuantity = 999
+	}
 	query := `
 		UPDATE products
 		SET name = COALESCE(NULLIF($1, ''), name),
@@ -234,6 +243,10 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *domain.Product
 		    description = COALESCE(NULLIF($4, ''), description),
 		    image = COALESCE(NULLIF($5, ''), image),
 		    is_available = COALESCE($6, is_available),
+		    stock_quantity = CASE 
+		        WHEN $6 = true AND stock_quantity <= 0 THEN 999 
+		        ELSE stock_quantity 
+		    END,
 		    updated_at = $7
 		WHERE id = $8
 	`
