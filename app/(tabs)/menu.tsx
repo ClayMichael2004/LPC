@@ -9,7 +9,6 @@ import {
   Modal,
   Switch,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -28,6 +27,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AppHeader from '../../src/components/AppHeader';
 import MenuItemRow from '../../src/components/MenuItemRow';
 import CartFloatingBar from '../../src/components/CartFloatingBar';
+import FeedbackModal from '../../src/components/FeedbackModal';
 import { MENU_TABS, PRODUCTS } from '../../src/constants/menuData';
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { useCart } from '../../src/context/CartContext';
@@ -83,6 +83,21 @@ export default function MenuScreen() {
   const [selectedPresetImage, setSelectedPresetImage] = useState<any>(FOOD_PRESETS[0].image);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isImagePickerSheetVisible, setIsImagePickerSheetVisible] = useState(false);
+
+  // Polished Feedback Modal replacing native alerts
+  const [feedbackModal, setFeedbackModal] = useState<{
+    visible: boolean;
+    type?: 'info' | 'success' | 'error' | 'confirm';
+    title: string;
+    message: string;
+    primaryText?: string;
+    onPrimaryPress?: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   // Admin Category Modal state
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -178,10 +193,14 @@ export default function MenuScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Photo Library Access',
-          'Please allow access to your photo library to select food pictures.'
-        );
+        setFeedbackModal({
+          visible: true,
+          type: 'info',
+          title: 'Photo Library Access',
+          message: 'Please allow access to your photo library to select food pictures.',
+          primaryText: 'Understood',
+          onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+        });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -203,7 +222,14 @@ export default function MenuScreen() {
         setIsImagePickerSheetVisible(false);
       }
     } catch (err: any) {
-      Alert.alert('Selection Error', err?.message || 'Could not select photo');
+      setFeedbackModal({
+        visible: true,
+        type: 'error',
+        title: 'Selection Error',
+        message: err?.message || 'Could not select photo',
+        primaryText: 'Close',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -211,10 +237,14 @@ export default function MenuScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Camera Access',
-          'Please allow camera access to take pictures of menu dishes.'
-        );
+        setFeedbackModal({
+          visible: true,
+          type: 'info',
+          title: 'Camera Access',
+          message: 'Please allow camera access to take pictures of menu dishes.',
+          primaryText: 'Understood',
+          onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+        });
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -235,7 +265,14 @@ export default function MenuScreen() {
         setIsImagePickerSheetVisible(false);
       }
     } catch (err: any) {
-      Alert.alert('Camera Error', err?.message || 'Could not launch camera');
+      setFeedbackModal({
+        visible: true,
+        type: 'error',
+        title: 'Camera Error',
+        message: err?.message || 'Could not launch camera',
+        primaryText: 'Close',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -705,6 +742,19 @@ export default function MenuScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Zero-slop Feedback Modal */}
+      <FeedbackModal
+        visible={feedbackModal.visible}
+        type={feedbackModal.type}
+        title={feedbackModal.title}
+        message={feedbackModal.message}
+        primaryText={feedbackModal.primaryText}
+        onPrimaryPress={
+          feedbackModal.onPrimaryPress ||
+          (() => setFeedbackModal((prev) => ({ ...prev, visible: false })))
+        }
+      />
     </View>
   );
 }

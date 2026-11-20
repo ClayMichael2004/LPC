@@ -124,3 +124,75 @@ CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders(status, created_a
 CREATE INDEX IF NOT EXISTS idx_orders_idempotency ON orders(idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_tracking_order ON order_tracking_steps(order_id);
+
+CREATE TABLE IF NOT EXISTS broadcast_logs (
+    id VARCHAR(64) PRIMARY KEY,
+    channel VARCHAR(32) NOT NULL,
+    subject TEXT,
+    message TEXT NOT NULL,
+    audience_count INT NOT NULL DEFAULT 0,
+    recipients JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS customer_notifications (
+    id VARCHAR(64) PRIMARY KEY,
+    category VARCHAR(64) NOT NULL DEFAULT 'offers',
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    channel VARCHAR(32) NOT NULL DEFAULT 'in-app',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admin_notifications (
+    id VARCHAR(64) PRIMARY KEY,
+    type VARCHAR(64) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+    user_id VARCHAR(64) PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    sms BOOLEAN NOT NULL DEFAULT TRUE,
+    whatsapp BOOLEAN NOT NULL DEFAULT TRUE,
+    email BOOLEAN NOT NULL DEFAULT TRUE,
+    promo BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS activity_badges (
+    id VARCHAR(64) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    desc_text TEXT,
+    icon VARCHAR(64),
+    is_new BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS gallery_photos (
+    id VARCHAR(64) PRIMARY KEY,
+    source TEXT NOT NULL,
+    label TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS specials (
+    id VARCHAR(64) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(64),
+    icon_name VARCHAR(64),
+    badge VARCHAR(64),
+    tint_color VARCHAR(32),
+    icon_color VARCHAR(32),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_broadcast_logs_created ON broadcast_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_customer_notifications_created ON customer_notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_created ON admin_notifications(created_at DESC);

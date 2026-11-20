@@ -159,6 +159,38 @@ func SeedDatabase(ctx context.Context, pool *pgxpool.Pool) error {
 		log.Printf("[Seeder Warning] Sample order seed: %v", err)
 	}
 
+	// 7. Seed Activity Badges
+	badgeQuery := `
+		INSERT INTO activity_badges (id, title, desc_text, icon, is_new, created_at, updated_at)
+		VALUES
+		('badge-1', 'Sundays · 12:00 PM – 2:00 PM', '2-hour guided painting workshop for kids and parents.', 'clock', false, NOW(), NOW()),
+		('badge-2', 'Sketches & Oil Paints', 'Sketch sheets, child-safe paints, and take-home canvas provided.', 'brush', false, NOW(), NOW()),
+		('badge-3', 'Garden Terrace + Treat', 'Includes reserved lakeside outdoor seating + complimentary iced brew for parent.', 'heart', false, NOW(), NOW()),
+		('badge-4', 'Take Canvas Home', 'Take home your dried canvas masterpiece at the end of the session.', 'sparkles', true, NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING;
+	`
+	if _, err := pool.Exec(ctx, badgeQuery); err != nil {
+		log.Printf("[Seeder Warning] Activity badges seed: %v", err)
+	}
+
+	// 8. Seed Gallery Photos
+	galleryQuery := `
+		INSERT INTO gallery_photos (id, source, label, created_at)
+		VALUES
+		('gal-1', 'painting-1.jpg', 'Coloring the Sketch', NOW()),
+		('gal-2', 'painting-2.jpg', 'Young Artist in Action', NOW()),
+		('gal-3', 'painting-3.jpg', 'Sunday Garden Session', NOW()),
+		('gal-4', 'painting-4.jpg', 'Oil Paints & Palette', NOW()),
+		('gal-5', 'painting-5.jpg', 'Canvas Work in Progress', NOW()),
+		('gal-6', 'painting-6.jpg', 'Family Joy & Creativity', NOW()),
+		('gal-7', 'painting-7.jpg', 'Detailed Brushwork', NOW()),
+		('gal-8', 'painting-8.jpg', 'Masterpiece Complete', NOW())
+		ON CONFLICT (id) DO NOTHING;
+	`
+	if _, err := pool.Exec(ctx, galleryQuery); err != nil {
+		log.Printf("[Seeder Warning] Gallery photos seed: %v", err)
+	}
+
 	log.Println("[Seeder] Little Polo Cafe data seeding completed successfully.")
 	return nil
 }

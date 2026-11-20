@@ -7,7 +7,6 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
-  Alert,
   Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -31,6 +30,7 @@ import {
 import { COLORS, FONT_SIZE, FONTS, RADIUS, SHADOW, SPACING } from '../../src/constants/theme';
 import { adminApi } from '../../src/services/api';
 import { BroadcastLog, BroadcastRecipient } from '../../src/types';
+import FeedbackModal from '../../src/components/FeedbackModal';
 
 export default function CommunicationHubScreen() {
   const router = useRouter();
@@ -50,6 +50,24 @@ export default function CommunicationHubScreen() {
   const [isSending, setIsSending] = useState(false);
   const [sendSuccessModalVisible, setSendSuccessModalVisible] = useState(false);
   const [lastSentLog, setLastSentLog] = useState<BroadcastLog | null>(null);
+
+  // Reusable polished feedback/confirmation modal
+  const [feedbackModal, setFeedbackModal] = useState<{
+    visible: boolean;
+    type?: 'info' | 'success' | 'error' | 'confirm';
+    title: string;
+    message: string;
+    primaryText?: string;
+    onPrimaryPress?: () => void;
+    secondaryText?: string;
+    onSecondaryPress?: () => void;
+    destructive?: boolean;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   // Logs modal
   const [logsModalVisible, setLogsModalVisible] = useState(false);
@@ -104,38 +122,50 @@ export default function CommunicationHubScreen() {
 
   const handleConfirmSend = () => {
     if ((channel === 'email' || channel === 'in-app') && !subject.trim()) {
-      Alert.alert(
-        'Title Required',
-        `Please provide a clear ${channel === 'email' ? 'subject line' : 'title'} for your announcement.`
-      );
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Title Required',
+        message: `Please provide a clear ${channel === 'email' ? 'subject line' : 'title'} for your announcement.`,
+        primaryText: 'Understood',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
     if (!message.trim()) {
-      Alert.alert('Message Required', 'Please enter your message before sending.');
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Message Required',
+        message: 'Please enter your message before sending.',
+        primaryText: 'Understood',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
     const channelLabel =
       channel === 'email'
-        ? 'EMAIL'
+        ? 'Email'
         : channel === 'whatsapp'
-        ? 'WHATSAPP'
-        : 'IN-APP';
+        ? 'WhatsApp'
+        : 'In-App';
 
-    Alert.alert(
-      'Confirm Broadcast',
-      `Send this ${channelLabel} announcement to ${audienceCount} registered customer${
+    setFeedbackModal({
+      visible: true,
+      type: 'confirm',
+      title: 'Confirm Broadcast',
+      message: `Send this ${channelLabel} announcement to ${audienceCount} registered customer${
         audienceCount === 1 ? '' : 's'
       }${channel === 'in-app' ? ' via their in-app notifications center' : ' who opted in'}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send Now',
-          style: 'default',
-          onPress: executeSendBroadcast,
-        },
-      ]
-    );
+      primaryText: 'Send Now',
+      secondaryText: 'Cancel',
+      onPrimaryPress: () => {
+        setFeedbackModal((prev) => ({ ...prev, visible: false }));
+        executeSendBroadcast();
+      },
+      onSecondaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+    });
   };
 
   const executeSendBroadcast = async () => {
@@ -151,7 +181,14 @@ export default function CommunicationHubScreen() {
       setMessage('');
       setSendSuccessModalVisible(true);
     } catch (err: any) {
-      Alert.alert('Broadcast Error', err.message || 'Could not dispatch broadcast. Please try again.');
+      setFeedbackModal({
+        visible: true,
+        type: 'error',
+        title: 'Broadcast Error',
+        message: err.message || 'Could not dispatch broadcast. Please try again.',
+        primaryText: 'Close',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
     } finally {
       setIsSending(false);
     }
@@ -470,7 +507,11 @@ export default function CommunicationHubScreen() {
               <>
                 <Send size={18} color={COLORS.white} strokeWidth={2.4} />
                 <Text style={styles.sendButtonText}>
-                  Send {channel === 'email' ? 'Email' : 'WhatsApp'} Announcement
+                  {channel === 'email'
+                    ? 'Send Email Broadcast'
+                    : channel === 'whatsapp'
+                    ? 'Send WhatsApp Announcement'
+                    : 'Send In-App Notification'}
                 </Text>
               </>
             )}
@@ -637,6 +678,25 @@ export default function CommunicationHubScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Polish zero-slop feedback modal replacing native alerts */}
+      <FeedbackModal
+        visible={feedbackModal.visible}
+        type={feedbackModal.type}
+        title={feedbackModal.title}
+        message={feedbackModal.message}
+        primaryText={feedbackModal.primaryText}
+        onPrimaryPress={
+          feedbackModal.onPrimaryPress ||
+          (() => setFeedbackModal((prev) => ({ ...prev, visible: false })))
+        }
+        secondaryText={feedbackModal.secondaryText}
+        onSecondaryPress={
+          feedbackModal.onSecondaryPress ||
+          (() => setFeedbackModal((prev) => ({ ...prev, visible: false })))
+        }
+        destructive={feedbackModal.destructive}
+      />
     </View>
   );
 }

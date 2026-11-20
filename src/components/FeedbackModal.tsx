@@ -38,30 +38,30 @@ export default function FeedbackModal({
     switch (type) {
       case 'success':
         return (
-          <View style={[styles.iconCircle, { backgroundColor: '#ECFDF5' }]}>
-            <CheckCircle2 size={28} color="#10B981" strokeWidth={2.4} />
+          <View style={[styles.iconCircle, { backgroundColor: '#DCFCE7' }]}>
+            <CheckCircle2 size={28} color="#075B35" strokeWidth={2.4} />
           </View>
         );
       case 'error':
         return (
-          <View style={[styles.iconCircle, { backgroundColor: '#FEF2F2' }]}>
-            <AlertCircle size={28} color="#EF4444" strokeWidth={2.4} />
+          <View style={[styles.iconCircle, { backgroundColor: '#FCE7F3' }]}>
+            <AlertCircle size={28} color="#691414" strokeWidth={2.4} />
           </View>
         );
       case 'confirm':
         return (
-          <View style={[styles.iconCircle, { backgroundColor: destructive ? '#FEF2F2' : '#EFF6FF' }]}>
+          <View style={[styles.iconCircle, { backgroundColor: destructive ? '#FCE7F3' : '#DBEAFE' }]}>
             {destructive ? (
-              <AlertCircle size={28} color="#EF4444" strokeWidth={2.4} />
+              <AlertCircle size={28} color="#691414" strokeWidth={2.4} />
             ) : (
-              <HelpCircle size={28} color="#3B82F6" strokeWidth={2.4} />
+              <HelpCircle size={28} color="#07345F" strokeWidth={2.4} />
             )}
           </View>
         );
       default:
         return (
-          <View style={[styles.iconCircle, { backgroundColor: '#F3F4F6' }]}>
-            <Info size={28} color="#111827" strokeWidth={2.4} />
+          <View style={[styles.iconCircle, { backgroundColor: '#DBEAFE' }]}>
+            <Info size={28} color="#07345F" strokeWidth={2.4} />
           </View>
         );
     }
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     ...SHADOW.soft,
   },
   destructiveBtn: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#691414',
   },
   primaryBtnText: {
     fontFamily: FONTS.bold,

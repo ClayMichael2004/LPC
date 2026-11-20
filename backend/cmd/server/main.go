@@ -118,6 +118,9 @@ func main() {
 	menuService := service.NewMenuService(productCatalog, menuCache)
 	orderService := service.NewOrderService(orderRepo, pricingService, wsHub)
 	adminService := service.NewAdminService(userRepo, emailService, menuService, activityReader)
+	if db != nil && db.Pool != nil {
+		adminService.SetPool(db.Pool)
+	}
 
 	// Operational notifications triggers
 	authService.SetOnNewRegistration(func(u *domain.User) {

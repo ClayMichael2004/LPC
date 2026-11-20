@@ -12,7 +12,6 @@ import {
   Platform,
   TextInput,
   Switch,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -20,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import FeedbackModal from '../../src/components/FeedbackModal';
 import {
   Palette,
   Calendar,
@@ -149,6 +149,24 @@ export default function ActivitiesScreen() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Polished Feedback / Confirmation Modal
+  const [feedbackModal, setFeedbackModal] = useState<{
+    visible: boolean;
+    type?: 'info' | 'success' | 'error' | 'confirm';
+    title: string;
+    message: string;
+    primaryText?: string;
+    onPrimaryPress?: () => void;
+    secondaryText?: string;
+    onSecondaryPress?: () => void;
+    destructive?: boolean;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const resolveGallerySource = (source: any) => {
     if (!source) return PRESET_GALLERY_IMAGES[0];
@@ -309,7 +327,14 @@ export default function ActivitiesScreen() {
 
   const handleSaveBadge = async () => {
     if (!badgeTitle.trim()) {
-      Alert.alert('Required', 'Please enter a title for the activity card.');
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Title Required',
+        message: 'Please enter a title for the activity card.',
+        primaryText: 'Understood',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -359,27 +384,27 @@ export default function ActivitiesScreen() {
   };
 
   const handleDeleteBadge = (badgeId: string) => {
-    Alert.alert(
-      'Remove Activity Badge',
-      'Are you sure you want to remove this activity card from the customer view?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            const updated = badges.filter((b) => b.id !== badgeId);
-            setBadges(updated);
-            adminApi.deleteBadge(badgeId).catch(() => {});
-            try {
-              await AsyncStorage.setItem(STORAGE_BADGES_KEY, JSON.stringify(updated));
-            } catch {
-              // Ignore
-            }
-          },
-        },
-      ]
-    );
+    setFeedbackModal({
+      visible: true,
+      type: 'confirm',
+      destructive: true,
+      title: 'Remove Activity Badge',
+      message: 'Are you sure you want to remove this activity card from the customer view?',
+      primaryText: 'Remove',
+      secondaryText: 'Cancel',
+      onPrimaryPress: async () => {
+        setFeedbackModal((prev) => ({ ...prev, visible: false }));
+        const updated = badges.filter((b) => b.id !== badgeId);
+        setBadges(updated);
+        adminApi.deleteBadge(badgeId).catch(() => {});
+        try {
+          await AsyncStorage.setItem(STORAGE_BADGES_KEY, JSON.stringify(updated));
+        } catch {
+          // Ignore
+        }
+      },
+      onSecondaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+    });
   };
 
   // --------------------------------------------------------------------------
@@ -397,10 +422,14 @@ export default function ActivitiesScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Photo Library Permission',
-          'Please allow LPC access to your photo library to pick event pictures.'
-        );
+        setFeedbackModal({
+          visible: true,
+          type: 'info',
+          title: 'Photo Library Permission',
+          message: 'Please allow LPC access to your photo library to pick event pictures.',
+          primaryText: 'Understood',
+          onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+        });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -421,7 +450,14 @@ export default function ActivitiesScreen() {
         }
       }
     } catch (err: any) {
-      Alert.alert('Selection Error', err?.message || 'Could not select photo');
+      setFeedbackModal({
+        visible: true,
+        type: 'error',
+        title: 'Selection Error',
+        message: err?.message || 'Could not select photo',
+        primaryText: 'Close',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -429,10 +465,14 @@ export default function ActivitiesScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Camera Permission',
-          'Please allow camera access to take pictures for the event gallery.'
-        );
+        setFeedbackModal({
+          visible: true,
+          type: 'info',
+          title: 'Camera Permission',
+          message: 'Please allow camera access to take pictures for the event gallery.',
+          primaryText: 'Understood',
+          onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+        });
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -452,18 +492,39 @@ export default function ActivitiesScreen() {
         }
       }
     } catch (err: any) {
-      Alert.alert('Camera Error', err?.message || 'Could not launch camera');
+      setFeedbackModal({
+        visible: true,
+        type: 'error',
+        title: 'Camera Error',
+        message: err?.message || 'Could not launch camera',
+        primaryText: 'Close',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
     }
   };
 
   const handleSavePhoto = async () => {
     if (!photoLabel.trim()) {
-      Alert.alert('Required', 'Please provide a caption or title for this photo.');
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Caption Required',
+        message: 'Please provide a caption or title for this photo.',
+        primaryText: 'Understood',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
     if (!customPhotoUri && photoPresetIndex === undefined) {
-      Alert.alert('Photo Required', 'Please select an image from your device or pick a preset.');
+      setFeedbackModal({
+        visible: true,
+        type: 'info',
+        title: 'Photo Required',
+        message: 'Please select an image from your device or pick a preset.',
+        primaryText: 'Understood',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -535,47 +596,63 @@ export default function ActivitiesScreen() {
       setCustomPhotoUri('');
       setPhotoBase64(null);
       setPhotoLabel('');
-      Alert.alert('Success', 'Event photo published! It is now live in the gallery.');
+      setFeedbackModal({
+        visible: true,
+        type: 'success',
+        title: 'Event Photo Published',
+        message: 'Your photo is now live in the Little Polo Cafe event gallery.',
+        primaryText: 'Great',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
     } catch (err: any) {
-      Alert.alert('Upload Failed', err?.message || 'Could not publish photo. Please try again.');
+      setFeedbackModal({
+        visible: true,
+        type: 'error',
+        title: 'Upload Failed',
+        message: err?.message || 'Could not publish photo. Please try again.',
+        primaryText: 'Close',
+        onPrimaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+      });
     } finally {
       setIsUploadingPhoto(false);
     }
   };
 
   const handleDeletePhoto = (photoId: string) => {
-    Alert.alert(
-      'Remove Photo',
-      'Remove this photo from the event gallery?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const updated = gallery.filter((p) => p.id !== photoId);
-            setGallery(updated);
-            try {
-              const storedList = updated.map((item) => {
-                if (item.isCustomUri && item.source?.uri) {
-                  return { id: item.id, uri: item.source.uri, label: item.label };
-                }
-                const foundIdx = PRESET_GALLERY_IMAGES.findIndex((p) => p === item.source);
-                return {
-                  id: item.id,
-                  presetIndex: foundIdx >= 0 ? foundIdx : 0,
-                  label: item.label,
-                };
-              });
-              await AsyncStorage.setItem(STORAGE_GALLERY_KEY, JSON.stringify(storedList));
-              adminApi.deleteGalleryPhoto(photoId).catch(() => {});
-            } catch {
-              // Ignore
+    setFeedbackModal({
+      visible: true,
+      type: 'confirm',
+      destructive: true,
+      title: 'Remove Photo',
+      message: 'Remove this photo from the event gallery?',
+      primaryText: 'Delete',
+      secondaryText: 'Cancel',
+      onPrimaryPress: async () => {
+        setFeedbackModal((prev) => ({ ...prev, visible: false }));
+        const updated = gallery.filter((p) => p.id !== photoId);
+        setGallery(updated);
+        try {
+          const storedList = updated.map((item) => {
+            if (item.isCustomUri && item.source?.uri) {
+              return {
+                id: item.id,
+                uri: item.source.uri,
+                label: item.label,
+              };
             }
-          },
-        },
-      ]
-    );
+            return {
+              id: item.id,
+              label: item.label,
+            };
+          });
+          await AsyncStorage.setItem(STORAGE_GALLERY_KEY, JSON.stringify(storedList));
+        } catch {
+          // ignore
+        }
+        adminApi.deleteGalleryPhoto(photoId).catch(() => {});
+      },
+      onSecondaryPress: () => setFeedbackModal((prev) => ({ ...prev, visible: false })),
+    });
   };
 
   const renderBadgeIcon = (icon: ActivityBadgeItem['icon']) => {
@@ -1143,6 +1220,25 @@ export default function ActivitiesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Polished zero-slop Feedback & Confirmation Modal */}
+      <FeedbackModal
+        visible={feedbackModal.visible}
+        type={feedbackModal.type}
+        title={feedbackModal.title}
+        message={feedbackModal.message}
+        primaryText={feedbackModal.primaryText}
+        onPrimaryPress={
+          feedbackModal.onPrimaryPress ||
+          (() => setFeedbackModal((prev) => ({ ...prev, visible: false })))
+        }
+        secondaryText={feedbackModal.secondaryText}
+        onSecondaryPress={
+          feedbackModal.onSecondaryPress ||
+          (() => setFeedbackModal((prev) => ({ ...prev, visible: false })))
+        }
+        destructive={feedbackModal.destructive}
+      />
     </View>
   );
 }
