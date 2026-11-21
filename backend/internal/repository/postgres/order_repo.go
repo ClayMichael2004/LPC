@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ErrOrderNotFound      = errors.New("order not found")
+	ErrOrderNotFound        = errors.New("order not found")
 	ErrDuplicateIdempotency = errors.New("duplicate idempotency key")
 )
 

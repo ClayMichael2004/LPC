@@ -148,7 +148,7 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "big-boss-burger", Name: "Big Boss Burger", Category: "burgers", Price: 850.00,
 			Description: "Double grilled patties with melted cheese, fresh tomato, crisp lettuce, and Little Polo house relish.",
-			Image: "burger-boss.png", HasOptions: true, IsAvailable: true, StockQuantity: 50, CreatedAt: now, UpdatedAt: now,
+			Image:       "burger-boss.png", HasOptions: true, IsAvailable: true, StockQuantity: 50, CreatedAt: now, UpdatedAt: now,
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "burger-sauce", Title: "Choose Your Sauce", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
@@ -161,7 +161,7 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "big-boss-burger-meal", Name: "Big Boss Burger Meal", Category: "burgers", Price: 1200.00,
 			Description: "Big Boss Burger served with golden seasoned fries and a 500ml cold beverage.",
-			Image: "burger-meal.png", HasOptions: true, IsAvailable: true, StockQuantity: 40, CreatedAt: now, UpdatedAt: now,
+			Image:       "burger-meal.png", HasOptions: true, IsAvailable: true, StockQuantity: 40, CreatedAt: now, UpdatedAt: now,
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "meal-drink", Title: "Choose Your Meal Drink", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
@@ -177,27 +177,27 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "colonel-burger", Name: "Colonel Burger", Category: "burgers", Price: 650.00,
 			Description: "Crispy golden fried breast fillet with creamy mayo and crunchy iceberg lettuce on a toasted bun.",
-			Image: "burger-colonel.png", HasOptions: false, IsAvailable: true, StockQuantity: 60, CreatedAt: now, UpdatedAt: now,
+			Image:       "burger-colonel.png", HasOptions: false, IsAvailable: true, StockQuantity: 60, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "crunch-burger", Name: "Crunch Burger", Category: "burgers", Price: 490.00,
 			Description: "Crisp chicken patty with cheese slice and creamy garlic drizzle.",
-			Image: "burger-crunch.png", HasOptions: false, IsAvailable: true, StockQuantity: 45, CreatedAt: now, UpdatedAt: now,
+			Image:       "burger-crunch.png", HasOptions: false, IsAvailable: true, StockQuantity: 45, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "streetwise-3-crunch", Name: "Streetwise 3 Crunch", Category: "for-me", Price: 650.00,
 			Description: "3 succulent crispy chicken pieces with salted fries.",
-			Image: "burger-crunch.png", HasOptions: false, IsAvailable: true, StockQuantity: 30, CreatedAt: now, UpdatedAt: now,
+			Image:       "burger-crunch.png", HasOptions: false, IsAvailable: true, StockQuantity: 30, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "nyama-nyama-burger", Name: "Nyama Nyama Burger", Category: "burgers", Price: 900.00,
 			Description: "All-meat signature burger loaded with double bacon, caramelized onions, and cheddar melt.",
-			Image: "burger-boss.png", HasOptions: false, IsAvailable: true, StockQuantity: 25, CreatedAt: now, UpdatedAt: now,
+			Image:       "burger-boss.png", HasOptions: false, IsAvailable: true, StockQuantity: 25, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "2l-soda", Name: "2L Soda", Category: "drinks", Price: 350.00,
 			Description: "Chilled 2 Liter refreshing beverage to share.",
-			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 100, CreatedAt: now, UpdatedAt: now,
+			Image:       "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 100, CreatedAt: now, UpdatedAt: now,
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "soda-flavor", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
@@ -213,7 +213,7 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "1l-soda", Name: "1l Soda", Category: "drinks", Price: 250.00,
 			Description: "Chilled 1 Liter beverage.",
-			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 100, CreatedAt: now, UpdatedAt: now,
+			Image:       "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 100, CreatedAt: now, UpdatedAt: now,
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "soda-flavor-1l", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
@@ -229,7 +229,7 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "500ml-soda", Name: "500ml Soda", Category: "drinks", Price: 150.00,
 			Description: "Chilled 500ml single serve bottle.",
-			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 120, CreatedAt: now, UpdatedAt: now,
+			Image:       "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 120, CreatedAt: now, UpdatedAt: now,
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "soda-flavor-500ml", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
@@ -245,7 +245,7 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "350ml-soda", Name: "350ml Soda", Category: "drinks", Price: 100.00,
 			Description: "Pocket size refreshing cold soda.",
-			Image: "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 150, CreatedAt: now, UpdatedAt: now,
+			Image:       "soda-2l.png", HasOptions: true, IsAvailable: true, StockQuantity: 150, CreatedAt: now, UpdatedAt: now,
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "soda-flavor-350ml", Title: "Choose Your Soda Flavor", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
@@ -261,7 +261,7 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "cold-brew-vanilla", Name: "Cold Brew Vanilla Sweet Cream", Category: "artisan-coffee", Price: 450.00,
 			Description: "18-hour slow-steeped Kenyan single origin coffee finished with handcrafted vanilla sweet cream.",
-			Image: "cold-brew.jpg", HasOptions: true, IsAvailable: true, StockQuantity: 35, CreatedAt: now, UpdatedAt: now,
+			Image:       "cold-brew.jpg", HasOptions: true, IsAvailable: true, StockQuantity: 35, CreatedAt: now, UpdatedAt: now,
 			OptionsGroup: &domain.ProductOptionGroup{
 				ID: "milk-choice", Title: "Choose Your Milk Preference", Required: true, Min: 1, Max: 1,
 				Options: []domain.ProductOption{
@@ -274,27 +274,27 @@ func (r *MemoryProductRepo) seedData() {
 		{
 			ID: "spanish-latte", Name: "Iced Spanish Latte", Category: "artisan-coffee", Price: 420.00,
 			Description: "Espresso poured over condensed milk and chilled fresh milk.",
-			Image: "latte.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 40, CreatedAt: now, UpdatedAt: now,
+			Image:       "latte.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 40, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "pancake-stack", Name: "Fluffy Buttermilk Pancake Stack", Category: "breakfast", Price: 600.00,
 			Description: "Triple stack served with pure butter, Kisumu wildflower honey, and wild berries.",
-			Image: "pancakes.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 20, CreatedAt: now, UpdatedAt: now,
+			Image:       "pancakes.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 20, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "flaky-croissant", Name: "Butter Flaky Croissant", Category: "pastries", Price: 280.00,
 			Description: "Golden laminated pastry freshly baked every morning.",
-			Image: "croissant.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 30, CreatedAt: now, UpdatedAt: now,
+			Image:       "croissant.jpg", HasOptions: false, IsAvailable: true, StockQuantity: 30, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "polo-solo-box", Name: "Polo Solo Feast Box", Category: "box-meals", Price: 1100.00,
 			Description: "Big Boss Burger, 2 crispy wings, large fries, and 500ml soda.",
-			Image: "cat-grid-4.png", HasOptions: false, IsAvailable: true, StockQuantity: 25, CreatedAt: now, UpdatedAt: now,
+			Image:       "cat-grid-4.png", HasOptions: false, IsAvailable: true, StockQuantity: 25, CreatedAt: now, UpdatedAt: now,
 		},
 		{
 			ID: "lake-sharing-box", Name: "Lake Breeze Sharing Box", Category: "for-us", Price: 2400.00,
 			Description: "4 Burgers, 8 crispy tenders, family fries, and 2L soda.",
-			Image: "cat-grid-3.png", HasOptions: false, IsAvailable: true, StockQuantity: 15, CreatedAt: now, UpdatedAt: now,
+			Image:       "cat-grid-3.png", HasOptions: false, IsAvailable: true, StockQuantity: 15, CreatedAt: now, UpdatedAt: now,
 		},
 	}
 

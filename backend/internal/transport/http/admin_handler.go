@@ -15,9 +15,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	redisclient "github.com/redis/go-redis/v9"
 	"github.com/littlepolocafe/backend/internal/domain"
 	"github.com/littlepolocafe/backend/internal/service"
+	redisclient "github.com/redis/go-redis/v9"
 )
 
 type AdminHandler struct {

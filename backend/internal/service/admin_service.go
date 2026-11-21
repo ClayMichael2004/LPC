@@ -40,11 +40,11 @@ type ActivityManager interface {
 }
 
 type AdminService struct {
-	userRepo       UserStore
-	emailService   *EmailService
-	menuService    *MenuService
-	activityRepo   ActivityStore
-	pool           DBPoolIface
+	userRepo     UserStore
+	emailService *EmailService
+	menuService  *MenuService
+	activityRepo ActivityStore
+	pool         DBPoolIface
 
 	mu               sync.RWMutex
 	broadcastLogs    []domain.BroadcastLog
@@ -869,4 +869,3 @@ func (s *AdminService) MarkCustomerNotificationRead(ctx context.Context, id stri
 	}
 	return nil
 }
-

@@ -20,18 +20,18 @@ const (
 )
 
 type WSMessage struct {
-	Type      string      `json:"type"`      // "ORDER_UPDATE", "COURIER_LOCATION", "NEW_ORDER", "HEARTBEAT"
-	OrderID   string      `json:"orderId"`
-	Payload   interface{} `json:"payload"`
+	Type      string         `json:"type"` // "ORDER_UPDATE", "COURIER_LOCATION", "NEW_ORDER", "HEARTBEAT"
+	OrderID   string         `json:"orderId"`
+	Payload   interface{}    `json:"payload"`
 	Timestamp domain.EATTime `json:"timestamp"`
 }
 
 type Client struct {
-	hub      *Hub
-	conn     *websocket.Conn
-	send     chan []byte
-	orderID  string // empty if admin
-	isAdmin  bool
+	hub     *Hub
+	conn    *websocket.Conn
+	send    chan []byte
+	orderID string // empty if admin
+	isAdmin bool
 }
 
 type Hub struct {

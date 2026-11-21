@@ -3,12 +3,12 @@ package domain
 type OrderStatus string
 
 const (
-	OrderStatusPending         OrderStatus = "PENDING"
-	OrderStatusConfirmed       OrderStatus = "CONFIRMED"
-	OrderStatusPreparing       OrderStatus = "PREPARING"
-	OrderStatusOutForDelivery  OrderStatus = "OUT_FOR_DELIVERY"
-	OrderStatusDelivered       OrderStatus = "DELIVERED"
-	OrderStatusCancelled       OrderStatus = "CANCELLED"
+	OrderStatusPending        OrderStatus = "PENDING"
+	OrderStatusConfirmed      OrderStatus = "CONFIRMED"
+	OrderStatusPreparing      OrderStatus = "PREPARING"
+	OrderStatusOutForDelivery OrderStatus = "OUT_FOR_DELIVERY"
+	OrderStatusDelivered      OrderStatus = "DELIVERED"
+	OrderStatusCancelled      OrderStatus = "CANCELLED"
 )
 
 // DeliveryInfo holds destination information for courier delivery.
@@ -31,16 +31,16 @@ type OrderItemInput struct {
 
 // OrderItem represents a finalized order line item with an immutable price snapshot.
 type OrderItem struct {
-	ID             string   `json:"id"`
-	OrderID        string   `json:"orderId"`
-	ProductID      string   `json:"productId"`
-	ProductName    string   `json:"productName"`
-	OptionID       *string  `json:"optionId,omitempty"`
-	OptionName     *string  `json:"optionName,omitempty"`
-	Quantity       int      `json:"quantity"`
-	UnitPrice      float64  `json:"unitPrice"`
-	OptionPrice    float64  `json:"optionPrice"`
-	TotalPrice     float64  `json:"totalPrice"`
+	ID          string  `json:"id"`
+	OrderID     string  `json:"orderId"`
+	ProductID   string  `json:"productId"`
+	ProductName string  `json:"productName"`
+	OptionID    *string `json:"optionId,omitempty"`
+	OptionName  *string `json:"optionName,omitempty"`
+	Quantity    int     `json:"quantity"`
+	UnitPrice   float64 `json:"unitPrice"`
+	OptionPrice float64 `json:"optionPrice"`
+	TotalPrice  float64 `json:"totalPrice"`
 }
 
 // PriceCalculationRequest accepts client items and optional delivery preferences to return server-side pricing.
@@ -101,22 +101,22 @@ type OrderTracking struct {
 
 // Order represents a complete order record in PostgreSQL.
 type Order struct {
-	ID                       string        `json:"id"`
-	UserID                   string        `json:"userId"`
-	Status                   OrderStatus   `json:"status"`
-	Subtotal                 float64       `json:"subtotal"`
-	DeliveryFee              float64       `json:"deliveryFee"`
-	VAT                      float64       `json:"vat"`
-	Total                    float64       `json:"total"`
-	PaymentMethod            string        `json:"paymentMethod"`
-	PaymentStatus            string        `json:"paymentStatus"`
-	DeliveryInfo             DeliveryInfo  `json:"deliveryInfo"`
-	Courier                  *CourierInfo  `json:"courier,omitempty"`
-	EstimatedDeliveryMinutes int           `json:"estimatedDeliveryMinutes"`
-	Items                    []OrderItem   `json:"items"`
-	IdempotencyKey           *string       `json:"idempotencyKey,omitempty"`
-	CreatedAt                EATTime       `json:"createdAt"`
-	UpdatedAt                EATTime       `json:"updatedAt"`
+	ID                       string       `json:"id"`
+	UserID                   string       `json:"userId"`
+	Status                   OrderStatus  `json:"status"`
+	Subtotal                 float64      `json:"subtotal"`
+	DeliveryFee              float64      `json:"deliveryFee"`
+	VAT                      float64      `json:"vat"`
+	Total                    float64      `json:"total"`
+	PaymentMethod            string       `json:"paymentMethod"`
+	PaymentStatus            string       `json:"paymentStatus"`
+	DeliveryInfo             DeliveryInfo `json:"deliveryInfo"`
+	Courier                  *CourierInfo `json:"courier,omitempty"`
+	EstimatedDeliveryMinutes int          `json:"estimatedDeliveryMinutes"`
+	Items                    []OrderItem  `json:"items"`
+	IdempotencyKey           *string      `json:"idempotencyKey,omitempty"`
+	CreatedAt                EATTime      `json:"createdAt"`
+	UpdatedAt                EATTime      `json:"updatedAt"`
 }
 
 // UpdateOrderStatusRequest is used by Admin to advance the order state machine.

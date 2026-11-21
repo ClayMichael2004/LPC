@@ -13,13 +13,13 @@ import (
 )
 
 type Handlers struct {
-	AuthHandler     *AuthHandler
-	MenuHandler     *MenuHandler
-	OrderHandler    *OrderHandler
-	AdminHandler    *AdminHandler
-	ActivityHandler *ActivityHandler
-	WSHub           *websocket.Hub
-	RedisClient     *redisclient.Client
+	AuthHandler      *AuthHandler
+	MenuHandler      *MenuHandler
+	OrderHandler     *OrderHandler
+	AdminHandler     *AdminHandler
+	ActivityHandler  *ActivityHandler
+	WSHub            *websocket.Hub
+	RedisClient      *redisclient.Client
 	IdempotencyStore *redis.IdempotencyStore
 }
 

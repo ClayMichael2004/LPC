@@ -33,11 +33,11 @@ func ServeOrderWS(hub *Hub, c *gin.Context) {
 	}
 
 	client := &Client{
-		hub:      hub,
-		conn:     conn,
-		send:     make(chan []byte, 256),
-		orderID:  orderID,
-		isAdmin:  false,
+		hub:     hub,
+		conn:    conn,
+		send:    make(chan []byte, 256),
+		orderID: orderID,
+		isAdmin: false,
 	}
 
 	hub.register <- client
@@ -55,10 +55,10 @@ func ServeAdminWS(hub *Hub, c *gin.Context) {
 	}
 
 	client := &Client{
-		hub:      hub,
-		conn:     conn,
-		send:     make(chan []byte, 256),
-		isAdmin:  true,
+		hub:     hub,
+		conn:    conn,
+		send:    make(chan []byte, 256),
+		isAdmin: true,
 	}
 
 	hub.register <- client
