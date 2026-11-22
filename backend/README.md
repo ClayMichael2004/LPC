@@ -37,6 +37,12 @@ cp .env.example .env
 ```bash
 docker-compose up -d --build
 ```
+
+We also have a dockeer command to view logs that will be updated tomorrow, here
+```
+
+```
+
 This spins up PostgreSQL, Redis, auto-migrates the database schema, seeds the initial Little Polo Cafe menu, and starts the API server on `http://localhost:8080`.
 
 ### 3. Run Locally (Without Docker)
