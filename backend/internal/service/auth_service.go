@@ -41,13 +41,28 @@ type UserStore interface {
 }
 
 type AuthService struct {
-	cfg               *config.Config
-	userRepo          UserStore
-	emailService      *EmailService
-	redisClient       *redisclient.Client
-	localOTP          sync.Map // Fallback in-memory OTP store
-	activeSessions    sync.Map // userID -> active sessionID (single-device session enforcement)
-	onNewRegistration func(u *domain.User)
+	cfg                 *config.Config
+	userRepo            UserStore
+	emailService        *EmailService
+	redisClient         *redisclient.Client
+	localOTP            sync.Map // Fallback in-memory OTP store
+	activeSessions      sync.Map // userID -> active sessionID (single-device session enforcement)
+	otpRequestLimiter   sync.Map // identifier -> *otpRequestRateEntry (per-account OTP caps)
+	otpAttemptTracker   sync.Map // identifier -> int (2FA attempt budget)
+	loginLockoutTracker sync.Map // identifier -> *lockoutEntry (app login lockout)
+	onNewRegistration   func(u *domain.User)
+}
+
+type otpRequestRateEntry struct {
+	mu         sync.Mutex
+	timestamps []time.Time
+}
+
+type lockoutEntry struct {
+	mu           sync.Mutex
+	failedCount  int
+	lockedUntil  time.Time
+	firstFailure time.Time
 }
 
 type otpItem struct {
@@ -93,6 +108,11 @@ func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string
 		return "", ErrAccountNotFound
 	}
 
+	// Enforce per-account code cap (max 3 requests per 10 minutes per identifier)
+	if err := s.checkOTPRateLimit(ctx, identifier); err != nil {
+		return "", err
+	}
+
 	code, err := generate4DigitCode()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate OTP: %w", err)
@@ -135,13 +155,162 @@ func (s *AuthService) RequestOTP(ctx context.Context, otpType, identifier string
 		if targetPhone == "" {
 			targetPhone = identifier
 		}
+		// Redact verification code from application logs to prevent confirmation code leaks
 		log.Printf("==================================================================")
 		log.Printf("[WHATSAPP OTP DISPATCH] To WhatsApp: %s (Expires in 5 minutes)", targetPhone)
-		log.Printf("[WHATSAPP OTP CODE]     >>> %s <<<", code)
+		log.Printf("[WHATSAPP OTP CODE]     >>> [REDACTED FOR SECURITY] <<<")
 		log.Printf("==================================================================")
 	}
 
 	return code, nil
+}
+
+// checkOTPRateLimit enforces a strict per-account code cap (max 3 requests per 10 minutes per identifier)
+func (s *AuthService) checkOTPRateLimit(ctx context.Context, identifier string) error {
+	window := 10 * time.Minute
+	maxReqs := 3
+
+	if s.redisClient != nil {
+		redisKey := fmt.Sprintf("lpc:ratelimit:otp:acct:%s", identifier)
+		count, err := s.redisClient.Incr(ctx, redisKey).Result()
+		if err == nil {
+			if count == 1 {
+				_ = s.redisClient.Expire(ctx, redisKey, window).Err()
+			}
+			if count > int64(maxReqs) {
+				return ErrTooManyOTPRequests
+			}
+			return nil
+		}
+	}
+
+	// In-memory fallback
+	val, _ := s.otpRequestLimiter.LoadOrStore(identifier, &otpRequestRateEntry{})
+	entry := val.(*otpRequestRateEntry)
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+
+	now := time.Now()
+	cutoff := now.Add(-window)
+	var validTimes []time.Time
+	for _, t := range entry.timestamps {
+		if t.After(cutoff) {
+			validTimes = append(validTimes, t)
+		}
+	}
+	if len(validTimes) >= maxReqs {
+		entry.timestamps = validTimes
+		return ErrTooManyOTPRequests
+	}
+	validTimes = append(validTimes, now)
+	entry.timestamps = validTimes
+	return nil
+}
+
+// recordFailedOTPAttempt tracks failed verification attempts and invalidates the code if attempt budget (5) is exceeded
+func (s *AuthService) recordFailedOTPAttempt(ctx context.Context, identifier string) int {
+	maxAttempts := 5
+	redisKey := fmt.Sprintf("lpc:otp:attempts:%s", identifier)
+
+	var attempts int
+	if s.redisClient != nil {
+		count, err := s.redisClient.Incr(ctx, redisKey).Result()
+		if err == nil {
+			if count == 1 {
+				_ = s.redisClient.Expire(ctx, redisKey, OTPExpiryDuration).Err()
+			}
+			attempts = int(count)
+		}
+	}
+
+	if attempts == 0 {
+		val, _ := s.otpAttemptTracker.LoadOrStore(identifier, 0)
+		curr := val.(int) + 1
+		s.otpAttemptTracker.Store(identifier, curr)
+		attempts = curr
+	}
+
+	if attempts >= maxAttempts {
+		// Immediately burn and invalidate the OTP code
+		s.localOTP.Delete(identifier)
+		if s.redisClient != nil {
+			_ = s.redisClient.Del(ctx, fmt.Sprintf("lpc:otp:%s", identifier)).Err()
+		}
+	}
+
+	return attempts
+}
+
+func (s *AuthService) clearOTPAttempts(ctx context.Context, identifier string) {
+	s.otpAttemptTracker.Delete(identifier)
+	if s.redisClient != nil {
+		_ = s.redisClient.Del(ctx, fmt.Sprintf("lpc:otp:attempts:%s", identifier)).Err()
+	}
+}
+
+func (s *AuthService) isAccountLocked(ctx context.Context, identifier string) bool {
+	if s.redisClient != nil {
+		lockKey := fmt.Sprintf("lpc:lockout:login:%s", identifier)
+		val, err := s.redisClient.Exists(ctx, lockKey).Result()
+		if err == nil && val > 0 {
+			return true
+		}
+	}
+
+	if item, ok := s.loginLockoutTracker.Load(identifier); ok {
+		entry := item.(*lockoutEntry)
+		entry.mu.Lock()
+		defer entry.mu.Unlock()
+		if time.Now().Before(entry.lockedUntil) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *AuthService) recordFailedLogin(ctx context.Context, identifier string) {
+	window := 15 * time.Minute
+	maxFails := 5
+
+	if s.redisClient != nil {
+		failKey := fmt.Sprintf("lpc:fails:login:%s", identifier)
+		count, err := s.redisClient.Incr(ctx, failKey).Result()
+		if err == nil {
+			if count == 1 {
+				_ = s.redisClient.Expire(ctx, failKey, window).Err()
+			}
+			if count >= int64(maxFails) {
+				lockKey := fmt.Sprintf("lpc:lockout:login:%s", identifier)
+				_ = s.redisClient.Set(ctx, lockKey, "LOCKED", window).Err()
+			}
+			return
+		}
+	}
+
+	val, _ := s.loginLockoutTracker.LoadOrStore(identifier, &lockoutEntry{})
+	entry := val.(*lockoutEntry)
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+
+	now := time.Now()
+	if entry.firstFailure.IsZero() || now.Sub(entry.firstFailure) > window {
+		entry.failedCount = 1
+		entry.firstFailure = now
+	} else {
+		entry.failedCount++
+		if entry.failedCount >= maxFails {
+			entry.lockedUntil = now.Add(window)
+		}
+	}
+}
+
+func (s *AuthService) resetFailedLogins(ctx context.Context, identifier string) {
+	s.loginLockoutTracker.Delete(identifier)
+	if s.redisClient != nil {
+		_ = s.redisClient.Del(ctx, fmt.Sprintf("lpc:fails:login:%s", identifier)).Err()
+		_ = s.redisClient.Del(ctx, fmt.Sprintf("lpc:lockout:login:%s", identifier)).Err()
+	}
 }
 
 // ExpireOTPForTest artificially backdates an OTP's expiration timestamp for testing the 5-minute expiry window.
@@ -197,9 +366,16 @@ func (s *AuthService) VerifyOTP(ctx context.Context, identifier, code, name stri
 
 	if validCode == "" || (validCode != code && !isTestBypass) {
 		if !isTestBypass {
+			attempts := s.recordFailedOTPAttempt(ctx, identifier)
+			if attempts >= 5 {
+				return nil, ErrOTPAttemptsExceeded
+			}
 			return nil, ErrInvalidOTP
 		}
 	}
+
+	// Code was verified successfully: clear attempt tracker
+	s.clearOTPAttempts(ctx, identifier)
 
 	// Delete used OTP immediately (single-use within 5 minutes)
 	if s.redisClient != nil {
@@ -285,9 +461,17 @@ func (s *AuthService) VerifyOTP(ctx context.Context, identifier, code, name stri
 // AdminLogin authenticates the cafe owner administrator.
 func (s *AuthService) AdminLogin(ctx context.Context, email, password string) (*domain.AuthResponse, error) {
 	email = strings.TrimSpace(email)
+	if s.isAccountLocked(ctx, email) {
+		return nil, ErrAccountLocked
+	}
+
 	if email != s.cfg.AdminEmail || (password != s.cfg.AdminPassword && password != "passcode1" && password != "AdminLPC2026!") {
+		s.recordFailedLogin(ctx, email)
 		return nil, ErrInvalidAdminAuth
 	}
+
+	// Login successful: reset failed attempt counter
+	s.resetFailedLogins(ctx, email)
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if errors.Is(err, postgres.ErrUserNotFound) || user == nil {
@@ -428,14 +612,32 @@ func HashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-// Register registers a new customer account, hashes the password, sends a welcome email with the LPC logo, and returns the user.
+// Register registers a new customer account, validates all inputs, hashes the password, sends a welcome email with the LPC logo, and returns the user.
 func (s *AuthService) Register(ctx context.Context, req domain.RegisterRequest) (*domain.User, error) {
-	name := strings.TrimSpace(req.Name)
+	name, err := SanitizeAndValidateName(req.Name)
+	if err != nil {
+		return nil, err
+	}
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	phone := strings.TrimSpace(req.Phone)
 
-	if name == "" || email == "" || phone == "" || req.Password == "" {
+	if email == "" || phone == "" || req.Password == "" {
 		return nil, errors.New("name, email, phone and password are required")
+	}
+
+	// Reject disposable / burner email domains
+	if IsDisposableEmail(email) {
+		return nil, ErrDisposableEmail
+	}
+
+	// Enforce strong password policy
+	if err := ValidatePassword(req.Password); err != nil {
+		return nil, err
+	}
+
+	// Validate international / Kenyan phone format
+	if err := ValidatePhone(phone); err != nil {
+		return nil, err
 	}
 
 	// Check if user already exists
@@ -482,10 +684,14 @@ func (s *AuthService) SetOnNewRegistration(cb func(u *domain.User)) {
 	s.onNewRegistration = cb
 }
 
-// CustomerLogin authenticates a customer using email or phone and password.
+// CustomerLogin authenticates a customer using email or phone and password with brute force lockout protection.
 // If the account is an administrator, it enforces 2FA: requiresOtp is true and no JWT is issued until OTP is verified.
 func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password string) (*domain.LoginResponse, error) {
 	identifier = strings.TrimSpace(identifier)
+	if s.isAccountLocked(ctx, identifier) {
+		return nil, ErrAccountLocked
+	}
+
 	var user *domain.User
 	var err error
 
@@ -511,10 +717,12 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 		}
 
 		if !adminPasswordValid {
+			s.recordFailedLogin(ctx, identifier)
 			return nil, ErrInvalidCredentials
 		}
 
-		// Valid admin credentials -> require 2FA OTP verification
+		// Valid admin credentials -> reset lockout and require 2FA OTP verification
+		s.resetFailedLogins(ctx, identifier)
 		if user == nil {
 			user = &domain.User{
 				ID:       "usr-admin",
@@ -545,6 +753,7 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 	}
 
 	if err != nil || user == nil {
+		s.recordFailedLogin(ctx, identifier)
 		return nil, ErrInvalidCredentials
 	}
 
@@ -556,9 +765,13 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 		}
 	} else {
 		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+			s.recordFailedLogin(ctx, identifier)
 			return nil, ErrInvalidCredentials
 		}
 	}
+
+	// Login successful: reset failed login attempts
+	s.resetFailedLogins(ctx, identifier)
 
 	token, exp, err := s.generateJWT(user)
 	if err != nil {
@@ -575,8 +788,8 @@ func (s *AuthService) CustomerLogin(ctx context.Context, identifier, password st
 
 // ResetPassword hashes and saves a new password for the authenticated user, sends a confirmation email, and issues a fresh JWT.
 func (s *AuthService) ResetPassword(ctx context.Context, userID, newPassword string) (*domain.AuthResponse, error) {
-	if len(newPassword) < 6 {
-		return nil, errors.New("password must be at least 6 characters long")
+	if err := ValidatePassword(newPassword); err != nil {
+		return nil, err
 	}
 
 	user, err := s.userRepo.GetByID(ctx, userID)

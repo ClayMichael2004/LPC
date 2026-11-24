@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -592,7 +593,25 @@ func (h *AdminHandler) MarkCustomerNotificationRead(c *gin.Context) {
 // Image Upload Handler (Canva-style device gallery photo upload)
 // ----------------------------------------------------------------------------
 
+// isValidImageBytes verifies that image data starts with expected magic signatures
+func isValidImageBytes(data []byte, ext string) bool {
+	if len(data) < 12 {
+		return false
+	}
+	switch ext {
+	case ".jpg", ".jpeg":
+		return data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF
+	case ".png":
+		return bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n"))
+	case ".webp":
+		return string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP"
+	default:
+		return false
+	}
+}
+
 func (h *AdminHandler) UploadImage(c *gin.Context) {
+	const maxUploadBytes = 5 * 1024 * 1024 // 5 MB maximum upload size
 	uploadsDir := "./uploads"
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
 		JSONError(c, http.StatusInternalServerError, "Failed to initialize storage: "+err.Error())
@@ -603,10 +622,30 @@ func (h *AdminHandler) UploadImage(c *gin.Context) {
 	file, fileHeader, err := c.Request.FormFile("file")
 	if err == nil {
 		defer file.Close()
-		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-		if ext == "" {
-			ext = ".jpg"
+
+		if fileHeader.Size > maxUploadBytes {
+			JSONError(c, http.StatusRequestEntityTooLarge, "Uploaded file exceeds maximum allowable size of 5 MB")
+			return
 		}
+
+		ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			JSONError(c, http.StatusBadRequest, "Invalid image format. Only JPEG, PNG, and WebP images are allowed.")
+			return
+		}
+
+		// Read first 512 bytes for magic signature validation
+		headerBytes := make([]byte, 512)
+		n, _ := file.Read(headerBytes)
+		if !isValidImageBytes(headerBytes[:n], ext) {
+			JSONError(c, http.StatusBadRequest, "Invalid image file content. Magic byte signature check failed.")
+			return
+		}
+		// Reset file seek
+		if seeker, ok := file.(io.ReadSeeker); ok {
+			_, _ = seeker.Seek(0, io.SeekStart)
+		}
+
 		filename := fmt.Sprintf("upload_%s%s", uuid.NewString()[:12], ext)
 		dstPath := filepath.Join(uploadsDir, filename)
 
@@ -661,6 +700,16 @@ func (h *AdminHandler) UploadImage(c *gin.Context) {
 		return
 	}
 
+	if len(data) > maxUploadBytes {
+		JSONError(c, http.StatusRequestEntityTooLarge, "Uploaded image exceeds maximum allowable size of 5 MB")
+		return
+	}
+
+	if !isValidImageBytes(data, ext) {
+		JSONError(c, http.StatusBadRequest, "Invalid image file content. Magic byte signature check failed.")
+		return
+	}
+
 	filename := fmt.Sprintf("upload_%s%s", uuid.NewString()[:12], ext)
 	dstPath := filepath.Join(uploadsDir, filename)
 	if err := os.WriteFile(dstPath, data, 0644); err != nil {
@@ -675,15 +724,13 @@ func (h *AdminHandler) UploadImage(c *gin.Context) {
 }
 
 // ----------------------------------------------------------------------------
-// Customer Preferences
+// Customer Preferences (Protected against IDOR & Public Data Leak)
 // ----------------------------------------------------------------------------
 
 func (h *AdminHandler) GetUserPreferences(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
-		userID = c.Query("userId")
-	}
-	if userID == "" {
+		// Public/unauthenticated callers are locked to guest preferences only
 		userID = "guest"
 	}
 	pref := h.adminService.GetUserPreferences(c.Request.Context(), userID)
@@ -699,7 +746,8 @@ func (h *AdminHandler) UpdateUserPreferences(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID != "" {
 		req.UserID = userID
-	} else if req.UserID == "" {
+	} else {
+		// Public/unauthenticated callers may only alter guest preferences
 		req.UserID = "guest"
 	}
 	updated := h.adminService.UpdateUserPreferences(c.Request.Context(), req)

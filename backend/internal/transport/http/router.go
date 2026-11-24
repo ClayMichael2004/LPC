@@ -30,7 +30,11 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 
 	r := gin.New()
 
-	// Global Middlewares
+	// Defend against forgeable client IPs: disable trusting arbitrary proxy headers unless explicitly verified
+	_ = r.SetTrustedProxies(nil)
+
+	// Global Middlewares: Security headers, Recovery, CORS, and Logger
+	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.Recovery())
 	r.Use(middleware.CORS())
 	r.Use(gin.Logger())
@@ -65,17 +69,18 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 
 	api := r.Group("/api/v1")
 	{
-		// General API Rate Limit (120 req / minute)
+		// General API Rate Limit (120 req / minute) & Request Body Size Cap (2 MB default to protect against scanner buffer attacks)
 		api.Use(middleware.RateLimit(h.RedisClient, 120, time.Minute))
+		api.Use(middleware.MaxBodySize(2 * 1024 * 1024))
 
-		// Auth endpoints with strict rate limiting
+		// Auth endpoints with strict dedicated rate limiting
 		authGroup := api.Group("/auth")
 		{
-			authGroup.POST("/register", h.AuthHandler.Register)
-			authGroup.POST("/login", h.AuthHandler.CustomerLogin)
+			authGroup.POST("/register", middleware.RateLimit(h.RedisClient, 5, 15*time.Minute), h.AuthHandler.Register)
+			authGroup.POST("/login", middleware.RateLimit(h.RedisClient, 10, 5*time.Minute), h.AuthHandler.CustomerLogin)
 			authGroup.POST("/otp/request", middleware.RateLimit(h.RedisClient, 5, time.Minute), h.AuthHandler.RequestOTP)
-			authGroup.POST("/otp/verify", h.AuthHandler.VerifyOTP)
-			authGroup.POST("/admin/login", h.AuthHandler.AdminLogin)
+			authGroup.POST("/otp/verify", middleware.RateLimit(h.RedisClient, 10, 5*time.Minute), h.AuthHandler.VerifyOTP)
+			authGroup.POST("/admin/login", middleware.RateLimit(h.RedisClient, 5, 5*time.Minute), h.AuthHandler.AdminLogin)
 		}
 
 		// Menu endpoints (Public & cached in Redis)
@@ -104,8 +109,8 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		api.GET("/preferences", h.AdminHandler.GetUserPreferences)
 		api.PUT("/preferences", h.AdminHandler.UpdateUserPreferences)
 
-		// Canva-style Image Upload endpoint
-		api.POST("/upload", h.AdminHandler.UploadImage)
+		// Canva-style Image Upload endpoint (Dedicated 6MB body allowance + 20 uploads / 10m rate limit)
+		api.POST("/upload", middleware.RateLimit(h.RedisClient, 20, 10*time.Minute), middleware.MaxBodySize(6*1024*1024), h.AdminHandler.UploadImage)
 
 		// Price calculation (Public server-side price calculation endpoint)
 		api.POST("/orders/calculate", h.OrderHandler.CalculatePrice)
@@ -122,7 +127,7 @@ func SetupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 			// Profile, Password Reset & Logout
 			authRequired.GET("/profile", h.AuthHandler.GetProfile)
 			authRequired.PUT("/profile", h.AuthHandler.UpdateProfile)
-			authRequired.POST("/auth/password/reset", h.AuthHandler.ResetPassword)
+			authRequired.POST("/auth/password/reset", middleware.RateLimit(h.RedisClient, 5, 15*time.Minute), h.AuthHandler.ResetPassword)
 			authRequired.POST("/auth/logout", h.AuthHandler.Logout)
 
 			// Customer Orders (Strictly isolated to the authenticated customer)

@@ -19,4 +19,5 @@ backend/bin/
 backend/.env
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/internal/transport/http/uploads/
 *.exe

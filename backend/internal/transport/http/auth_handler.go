@@ -38,6 +38,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			JSONError(c, http.StatusConflict, err.Error())
 			return
 		}
+		if errors.Is(err, service.ErrDisposableEmail) ||
+			errors.Is(err, service.ErrWeakPassword) ||
+			errors.Is(err, service.ErrCommonPassword) ||
+			errors.Is(err, service.ErrInvalidPhone) ||
+			errors.Is(err, service.ErrInvalidName) {
+			JSONError(c, http.StatusBadRequest, err.Error())
+			return
+		}
 		JSONError(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -58,6 +66,10 @@ func (h *AuthHandler) CustomerLogin(c *gin.Context) {
 
 	authResp, err := h.authService.CustomerLogin(c.Request.Context(), req.Identifier, req.Password)
 	if err != nil {
+		if errors.Is(err, service.ErrAccountLocked) {
+			JSONError(c, http.StatusLocked, err.Error())
+			return
+		}
 		if errors.Is(err, service.ErrInvalidCredentials) {
 			JSONError(c, http.StatusUnauthorized, "Invalid email/phone or password.")
 			return
@@ -79,6 +91,10 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 
 	_, err := h.authService.RequestOTP(c.Request.Context(), req.Type, req.Identifier)
 	if err != nil {
+		if errors.Is(err, service.ErrTooManyOTPRequests) {
+			JSONError(c, http.StatusTooManyRequests, err.Error())
+			return
+		}
 		if errors.Is(err, service.ErrAccountNotFound) {
 			JSONError(c, http.StatusNotFound, "No registered account found with this email address. Please check the email or create an account.")
 			return
@@ -105,6 +121,10 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 
 	authResp, err := h.authService.VerifyOTP(c.Request.Context(), req.Identifier, req.Code, req.Name)
 	if err != nil {
+		if errors.Is(err, service.ErrOTPAttemptsExceeded) {
+			JSONError(c, http.StatusTooManyRequests, err.Error())
+			return
+		}
 		if errors.Is(err, service.ErrExpiredOTP) {
 			JSONError(c, http.StatusUnauthorized, "This verification code has expired. Codes are valid for 5 minutes — please request a new code.")
 			return
@@ -153,6 +173,10 @@ func (h *AuthHandler) AdminLogin(c *gin.Context) {
 
 	authResp, err := h.authService.AdminLogin(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
+		if errors.Is(err, service.ErrAccountLocked) {
+			JSONError(c, http.StatusLocked, err.Error())
+			return
+		}
 		if errors.Is(err, service.ErrInvalidAdminAuth) {
 			JSONError(c, http.StatusUnauthorized, "Invalid admin email or password.")
 			return

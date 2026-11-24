@@ -63,6 +63,10 @@ func (s *EmailService) buildRFC5322HTMLMessage(toEmail, subject, htmlBody string
 }
 
 func (s *EmailService) deliverMIME(toEmail string, msg []byte) bool {
+	if s.cfg.Env == "test" {
+		return true
+	}
+
 	// 1. Authenticated SMTP Relay (Gmail SMTP port 587 / 465)
 	if s.cfg.SMTPPassword != "" && s.cfg.SMTPUser != "" {
 		auth := smtp.PlainAuth("", s.cfg.SMTPUser, s.cfg.SMTPPassword, s.cfg.SMTPHost)
@@ -148,10 +152,10 @@ func (s *EmailService) SendOTP(toEmail, code string) error {
 		return nil
 	}
 
-	// Development / Fallback mode logging
+	// Development / Fallback mode logging (Zero Plaintext Secrets)
 	log.Printf("==================================================================")
 	log.Printf("[EMAIL OTP DISPATCH] From: %s -> To: %s", s.cfg.OTPSenderEmail, toEmail)
-	log.Printf("[EMAIL OTP CODE]      >>> %s <<<", code)
+	log.Printf("[EMAIL OTP CODE]      >>> [REDACTED FOR SECURITY] <<<")
 	log.Printf("==================================================================")
 	return nil
 }
