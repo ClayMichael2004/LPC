@@ -29,9 +29,11 @@ function resolveBackendHost(): string {
       return `${lanIp}:8085`;
     }
   }
+  // Fallback to local network IP for physical mobile devices running Expo Go
+  const localLanIp = '192.168.89.233';
   return Platform.select({
-    android: '10.0.2.2:8085',
-    default: 'localhost:8085',
+    android: `${localLanIp}:8085`,
+    default: `${localLanIp}:8085`,
   }) as string;
 }
 

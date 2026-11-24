@@ -56,7 +56,7 @@ func TestSecurity_SecurityHeadersMiddleware(t *testing.T) {
 	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
 	assert.Equal(t, "1; mode=block", w.Header().Get("X-XSS-Protection"))
 	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
-	assert.Equal(t, "default-src 'none'; frame-ancestors 'none'", w.Header().Get("Content-Security-Policy"))
+	assert.Equal(t, "frame-ancestors 'none'", w.Header().Get("Content-Security-Policy"))
 }
 
 func TestSecurity_MaxBodySizeMiddleware(t *testing.T) {

@@ -17,8 +17,8 @@ func SecurityHeaders() gin.HandlerFunc {
 		c.Header("X-XSS-Protection", "1; mode=block")
 		// Referrer policy
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		// Content-Security-Policy for API endpoints
-		c.Header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		// Content-Security-Policy: frame-ancestors prevents clickjacking while allowing mobile/web data fetching
+		c.Header("Content-Security-Policy", "frame-ancestors 'none'")
 		// Permissions Policy
 		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 

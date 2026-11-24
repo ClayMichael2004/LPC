@@ -18,14 +18,14 @@ import SystemBarBlur from '../src/components/SystemBarBlur';
 import SignInSheetModal from '../src/components/SignInSheetModal';
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return (
       <View style={styles.splashContainer}>
         <Image
